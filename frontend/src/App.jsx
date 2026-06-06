@@ -6,7 +6,17 @@ import Tables from './components/Tables';
 import OrderTaking from './components/OrderTaking';
 import Kitchen from './components/Kitchen';
 import MenuManagement from './components/MenuManagement';
-import { LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft } from 'lucide-react';
+import OrderPanel from './components/OrderPanel';
+import CashRegister from './components/CashRegister';
+import RecipeInventory from './components/RecipeInventory';
+import Personnel from './components/Personnel';
+import Expenses from './components/Expenses';
+import Couriers from './components/Couriers';
+import Reports from './components/Reports';
+import { 
+  LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
+  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart 
+} from 'lucide-react';
 
 function App() {
   const [isLanding, setIsLanding] = useState(true);
@@ -40,10 +50,24 @@ function App() {
             onBack={handleBackToTables} 
           />
         );
+      case 'order-panel':
+        return <OrderPanel />;
       case 'kitchen':
         return <Kitchen />;
       case 'menu':
         return <MenuManagement />;
+      case 'recipe-stok':
+        return <RecipeInventory />;
+      case 'cash-register':
+        return <CashRegister />;
+      case 'personnel':
+        return <Personnel />;
+      case 'expenses':
+        return <Expenses />;
+      case 'couriers':
+        return <Couriers />;
+      case 'reports':
+        return <Reports />;
       default:
         return <Dashboard />;
     }
@@ -57,10 +81,24 @@ function App() {
         return 'Masa Yönetimi';
       case 'order-taking':
         return 'Sipariş Ekranı';
+      case 'order-panel':
+        return 'Sipariş Paneli (Entegrasyonlar)';
       case 'kitchen':
         return 'Mutfak Ekranı';
       case 'menu':
         return 'Menü Yönetimi';
+      case 'recipe-stok':
+        return 'Reçete & Stok Yönetimi';
+      case 'cash-register':
+        return 'Kasa İşlemleri';
+      case 'personnel':
+        return 'Personel Yönetimi';
+      case 'expenses':
+        return 'Gider Takibi';
+      case 'couriers':
+        return 'Kurye & Paraüstü Takibi';
+      case 'reports':
+        return 'Raporlar';
       default:
         return 'Bidolu POS';
     }
@@ -74,10 +112,24 @@ function App() {
         return 'Masalarınızın durumunu ve siparişlerini takip edin';
       case 'order-taking':
         return 'Masa siparişlerini girin ve hesap ödemelerini alın';
+      case 'order-panel':
+        return 'Yemeksepeti, Getir, Trendyol, Migros ve WebSitesi siparişleri';
       case 'kitchen':
         return 'Mutfakta hazırlanmayı bekleyen siparişlerin takibi';
       case 'menu':
         return 'Kategori ve yemek menü elemanlarını yönetin';
+      case 'recipe-stok':
+        return 'Malzeme stok durumları, reçeteler ve satın alma işlemleri';
+      case 'cash-register':
+        return 'Nakit giriş-çıkışları, tahsilatlar ve kasa bakiyeleri';
+      case 'personnel':
+        return 'İşletme personelleri, çalışma rolleri ve yetkiler';
+      case 'expenses':
+        return 'Dükkan kirası, faturalar ve diğer tüm harcamalar';
+      case 'couriers':
+        return 'Lokal kurye durumları, teslimat günlükleri ve paraüstü avansları';
+      case 'reports':
+        return 'Detaylı ciro dağılımları ve kâr-zarar analiz raporları';
       default:
         return 'Restoran Yönetim Sistemi';
     }
@@ -106,34 +158,94 @@ function App() {
         </div>
 
         <nav style={{ flex: 1 }}>
-          <ul className="nav-links">
+          <ul className="nav-links" style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: 'calc(100vh - 180px)', overflowY: 'auto', paddingRight: '4px' }}>
             <li 
               className={`nav-item ${currentTab === 'dashboard' ? 'active' : ''}`}
               onClick={() => { setCurrentTab('dashboard'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
             >
-              <LayoutGrid />
+              <LayoutGrid size={18} />
               <span>Yönetim Paneli</span>
             </li>
             <li 
               className={`nav-item ${currentTab === 'tables' || currentTab === 'order-taking' ? 'active' : ''}`}
               onClick={() => { setCurrentTab('tables'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
             >
-              <Coffee />
+              <Coffee size={18} />
               <span>Masa Yönetimi</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'order-panel' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('order-panel'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <ShoppingBag size={18} />
+              <span>Sipariş Paneli</span>
             </li>
             <li 
               className={`nav-item ${currentTab === 'kitchen' ? 'active' : ''}`}
               onClick={() => { setCurrentTab('kitchen'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
             >
-              <ChefHat />
+              <ChefHat size={18} />
               <span>Mutfak Ekranı</span>
             </li>
             <li 
               className={`nav-item ${currentTab === 'menu' ? 'active' : ''}`}
               onClick={() => { setCurrentTab('menu'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
             >
-              <Settings />
+              <Settings size={18} />
               <span>Menü Yönetimi</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'recipe-stok' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('recipe-stok'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <Layers size={18} />
+              <span>Reçete & Stok</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'cash-register' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('cash-register'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <CreditCard size={18} />
+              <span>Kasa İşlemleri</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'personnel' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('personnel'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <Users size={18} />
+              <span>Personeller</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'expenses' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('expenses'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <DollarSign size={18} />
+              <span>Gider Takibi</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'couriers' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('couriers'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <Truck size={18} />
+              <span>Kurye Takibi</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'reports' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('reports'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <PieChart size={18} />
+              <span>Raporlar</span>
             </li>
           </ul>
         </nav>

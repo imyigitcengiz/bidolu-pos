@@ -19,6 +19,7 @@ export default function MenuManagement() {
   const [itemCat, setItemCat] = useState('');
   const [itemAvail, setItemAvail] = useState(true);
   const [editingItemId, setEditingItemId] = useState(null);
+  const [itemImage, setItemImage] = useState(null);
 
   useEffect(() => {
     fetchCategories();
@@ -88,13 +89,15 @@ export default function MenuManagement() {
       return;
     }
 
-    const payload = {
-      name: itemName,
-      price: parseFloat(itemPrice),
-      description: itemDesc,
-      category: parseInt(itemCat),
-      is_available: itemAvail
-    };
+    const formData = new FormData();
+    formData.append('name', itemName);
+    formData.append('price', parseFloat(itemPrice));
+    formData.append('description', itemDesc);
+    formData.append('category', parseInt(itemCat));
+    formData.append('is_available', itemAvail);
+    if (itemImage) {
+      formData.append('image', itemImage);
+    }
 
     try {
       let res;
@@ -102,15 +105,13 @@ export default function MenuManagement() {
         // Edit mode
         res = await fetch(`${API_BASE}/menu-items/${editingItemId}/`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: formData
         });
       } else {
         // Create mode
         res = await fetch(`${API_BASE}/menu-items/`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: formData
         });
       }
 
@@ -119,7 +120,12 @@ export default function MenuManagement() {
         setItemPrice('');
         setItemDesc('');
         setItemAvail(true);
+        setItemImage(null);
         setEditingItemId(null);
+        // Reset file input value
+        const fileInput = document.getElementById('item-image-input');
+        if (fileInput) fileInput.value = '';
+        
         fetchMenuItems();
         alert(editingItemId ? 'Ürün güncellendi.' : 'Ürün başarıyla eklendi.');
       }
@@ -155,6 +161,9 @@ export default function MenuManagement() {
     setItemPrice('');
     setItemDesc('');
     setItemAvail(true);
+    setItemImage(null);
+    const fileInput = document.getElementById('item-image-input');
+    if (fileInput) fileInput.value = '';
   };
 
   return (
@@ -235,6 +244,17 @@ export default function MenuManagement() {
                 />
               </div>
 
+              <div className="form-group">
+                <label>Ürün Resmi</label>
+                <input 
+                  type="file" 
+                  id="item-image-input"
+                  className="form-control" 
+                  accept="image/*"
+                  onChange={(e) => setItemImage(e.target.files[0])} 
+                />
+              </div>
+
               <div className="checkbox-group" style={{ marginBottom: '24px' }}>
                 <input 
                   type="checkbox" 
@@ -275,7 +295,22 @@ export default function MenuManagement() {
                 <tbody>
                   {menuItems.map(item => (
                     <tr key={item.id}>
-                      <td style={{ fontWeight: '500' }}>{item.name}</td>
+                      <td style={{ fontWeight: '500' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {item.image ? (
+                            <img 
+                              src={item.image.startsWith('http') ? item.image : `http://localhost:8000${item.image}`} 
+                              alt={item.name} 
+                              style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--panel-border)' }} 
+                            />
+                          ) : (
+                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Yok
+                            </div>
+                          )}
+                          <span>{item.name}</span>
+                        </div>
+                      </td>
                       <td>{item.category_name}</td>
                       <td>{parseFloat(item.price).toLocaleString('tr-TR')} ₺</td>
                       <td>
