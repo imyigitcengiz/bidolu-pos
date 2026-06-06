@@ -176,6 +176,87 @@ function App() {
     localStorage.setItem('auth_user', JSON.stringify(updatedUser));
   };
 
+  // ── Keyboard Shortcuts ──
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger shortcuts when typing in inputs
+      const tag = e.target.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+      // Don't trigger on landing/auth pages
+      if (isLanding || !authToken) return;
+
+      // ? key → toggle shortcut help
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowShortcuts(v => !v);
+        return;
+      }
+
+      // Escape → close shortcut help / close mobile menu
+      if (e.key === 'Escape') {
+        if (showShortcuts) { setShowShortcuts(false); return; }
+        if (mobileMenuOpen) { setMobileMenuOpen(false); return; }
+        return;
+      }
+
+      const ctrl = e.ctrlKey || e.metaKey;
+
+      // Ctrl + number → main tabs
+      if (ctrl && !e.shiftKey) {
+        const numMap = {
+          '1': 'dashboard',
+          '2': 'tables',
+          '3': 'kitchen',
+          '4': 'menu',
+          '5': 'order-panel',
+          '6': 'cash-register',
+          '7': 'reports',
+          '8': 'settings',
+          '9': 'profile',
+        };
+        if (numMap[e.key]) {
+          e.preventDefault();
+          setCurrentTab(numMap[e.key]);
+          setSelectedTable(null);
+          return;
+        }
+      }
+
+      // Alt + letter → quick jump
+      if (e.altKey && !ctrl) {
+        const altMap = {
+          'd': 'dashboard',
+          'm': 'menu',
+          't': 'tables',
+          'k': 'kitchen',
+          'r': 'reports',
+          'p': 'personnel',
+          'e': 'expenses',
+          'c': 'couriers',
+          'g': 'settings',    // G = Genel ayarlar
+          's': 'recipe-stok',
+          'w': 'official-website',
+          'q': 'qr-menu',
+          'x': 'extensions',
+          'a': 'super-admin',
+          'f': 'profile',     // F = proFil
+        };
+        if (altMap[e.key.toLowerCase()]) {
+          e.preventDefault();
+          setCurrentTab(altMap[e.key.toLowerCase()]);
+          setSelectedTable(null);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLanding, authToken, showShortcuts, mobileMenuOpen]);
+
+
   // ── Notification & Low-stock state ──
   const [notifications, setNotifications] = useState([]);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
@@ -849,6 +930,103 @@ function App() {
           {renderContent()}
         </section>
       </main>
+
+      {/* Keyboard Shortcuts Help Overlay */}
+      {showShortcuts && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowShortcuts(false); }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+            zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div style={{
+            background: 'var(--bg-card)', borderRadius: '20px', width: '100%', maxWidth: '580px',
+            maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+            border: '1px solid var(--panel-border)',
+          }}>
+            <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800' }}>⌨️ Klavye Kısayolları</h2>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Hızlı gezinme için kısayolları kullanın</p>
+              </div>
+              <button onClick={() => setShowShortcuts(false)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--panel-border)', borderRadius: '10px', padding: '6px 10px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px' }}>ESC</button>
+            </div>
+
+            <div style={{ padding: '20px 28px' }}>
+              {/* Ctrl + Number shortcuts */}
+              <h4 style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '1px', marginBottom: '10px' }}>Ctrl / ⌘ + Sayı</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '20px' }}>
+                {[
+                  ['1', 'Yönetim Paneli'],
+                  ['2', 'Masalar'],
+                  ['3', 'Mutfak'],
+                  ['4', 'Menü Yönetimi'],
+                  ['5', 'Sipariş Paneli'],
+                  ['6', 'Kasa'],
+                  ['7', 'Raporlar'],
+                  ['8', 'Ayarlar'],
+                  ['9', 'Profilim'],
+                ].map(([key, label]) => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ display: 'flex', gap: '3px' }}>
+                      <kbd style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid var(--panel-border)', borderRadius: '5px', padding: '2px 6px', fontSize: '10px', fontWeight: '700', fontFamily: 'monospace', minWidth: '20px', textAlign: 'center' }}>⌘</kbd>
+                      <kbd style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '5px', padding: '2px 6px', fontSize: '10px', fontWeight: '700', fontFamily: 'monospace', color: 'var(--primary)', minWidth: '20px', textAlign: 'center' }}>{key}</kbd>
+                    </div>
+                    <span style={{ fontSize: '12px', color: 'var(--text-main)' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Alt + Letter shortcuts */}
+              <h4 style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#a855f7', letterSpacing: '1px', marginBottom: '10px' }}>Alt + Harf</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '20px' }}>
+                {[
+                  ['D', 'Yönetim Paneli'],
+                  ['T', 'Masalar'],
+                  ['K', 'Mutfak'],
+                  ['M', 'Menü'],
+                  ['R', 'Raporlar'],
+                  ['P', 'Personel'],
+                  ['E', 'Giderler'],
+                  ['C', 'Kuryeler'],
+                  ['S', 'Reçete & Stok'],
+                  ['G', 'Genel Ayarlar'],
+                  ['W', 'Web Sitesi'],
+                  ['Q', 'QR Menü'],
+                  ['X', 'Eklentiler'],
+                  ['F', 'Profil'],
+                  ['A', 'Sistem Yönetimi'],
+                ].map(([key, label]) => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ display: 'flex', gap: '3px' }}>
+                      <kbd style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid var(--panel-border)', borderRadius: '5px', padding: '2px 6px', fontSize: '10px', fontWeight: '700', fontFamily: 'monospace', minWidth: '24px', textAlign: 'center' }}>Alt</kbd>
+                      <kbd style={{ background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.25)', borderRadius: '5px', padding: '2px 6px', fontSize: '10px', fontWeight: '700', fontFamily: 'monospace', color: '#a855f7', minWidth: '20px', textAlign: 'center' }}>{key}</kbd>
+                    </div>
+                    <span style={{ fontSize: '12px', color: 'var(--text-main)' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* General shortcuts */}
+              <h4 style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#10b981', letterSpacing: '1px', marginBottom: '10px' }}>Genel</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                {[
+                  ['?', 'Kısayol yardımı'],
+                  ['ESC', 'Kapat / Geri'],
+                ].map(([key, label]) => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)' }}>
+                    <kbd style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '5px', padding: '2px 8px', fontSize: '10px', fontWeight: '700', fontFamily: 'monospace', color: '#10b981' }}>{key}</kbd>
+                    <span style={{ fontSize: '12px', color: 'var(--text-main)' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
