@@ -20,7 +20,7 @@ import Extensions from './components/Extensions';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
   ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode, Puzzle, MessageSquare,
-  Contact, Lock
+  Contact, Lock, Menu, X
 } from 'lucide-react';
 
 const planLevels = {
@@ -93,6 +93,12 @@ function App() {
   });
 
   const [extensionsSubView, setExtensionsSubView] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu when tab changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [currentTab]);
 
   // ── Notification & Low-stock state ──
   const [notifications, setNotifications] = useState([]);
@@ -415,8 +421,9 @@ function App() {
 
   return (
     <div className="app-container">
+      {mobileMenuOpen && <div className="sidebar-overlay" onClick={() => setMobileMenuOpen(false)} />}
       {/* Sidebar Navigation */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileMenuOpen ? 'sidebar-open' : ''}`}>
         <div className="logo-container">
           <div className="logo-icon">B</div>
           <span className="logo-text">Bidolu POS</span>
@@ -607,6 +614,9 @@ function App() {
       {/* Main Content Pane */}
       <main className="main-content">
         <header className="header-container">
+          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(v => !v)}>
+            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
           <div className="header-title">
             <h1>{getPageTitle()}</h1>
             <p>{getPageSubtitle()}</p>
