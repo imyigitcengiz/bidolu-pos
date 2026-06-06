@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, QrCode, Globe, Users, MessageSquare, Plus, Trash2, Send, Save, ArrowLeft, RefreshCw, CheckCircle2, Play, MapPin, Lock } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 const planLevels = {
   'Starter': 1,

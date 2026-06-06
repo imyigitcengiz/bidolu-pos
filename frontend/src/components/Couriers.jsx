@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Plus, Check, RefreshCw, DollarSign, Activity, MapPin, Map, Navigation, Compass } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function Couriers({ restaurantProfile }) {
   const [couriers, setCouriers] = useState([]);

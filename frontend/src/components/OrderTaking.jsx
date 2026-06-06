@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus, Send, CreditCard, DollarSign, X, Check, Clock, Utensils, Tag, Percent, ChevronDown, AlertCircle } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function OrderTaking({ table, activeOrder, onBack }) {
   const [categories, setCategories] = useState([]);
@@ -281,7 +281,7 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
               <div className="menu-item-card" key={item.id} onClick={() => handleMenuItemClick(item)}>
                 {item.image && (
                   <img
-                    src={item.image.startsWith('http') ? item.image : `http://localhost:8000${item.image}`}
+                    src={item.image.startsWith('http') ? item.image : `${(import.meta.env.VITE_API_URL || '')}${item.image}`}
                     alt={item.name}
                     style={{ width: '100%', height: '120px', borderRadius: '10px', objectFit: 'cover', marginBottom: '4px' }}
                   />

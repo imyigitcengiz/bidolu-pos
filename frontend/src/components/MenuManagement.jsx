@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function MenuManagement() {
   const [categories, setCategories] = useState([]);
@@ -364,7 +364,7 @@ export default function MenuManagement() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           {item.image ? (
                             <img 
-                              src={item.image.startsWith('http') ? item.image : `http://localhost:8000${item.image}`} 
+                              src={item.image.startsWith('http') ? item.image : `${(import.meta.env.VITE_API_URL || '')}${item.image}`} 
                               alt={item.name} 
                               style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--panel-border)' }} 
                             />

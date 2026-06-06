@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Globe, Save, Monitor, Tablet, Smartphone, ExternalLink, Calendar, Eye, Edit3, Check, AtSign, Users, Image, ToggleLeft, ToggleRight, Type, Link, ChevronUp, ChevronDown, Trash2, Plus, ArrowLeft, Star, Settings, Trash, Clock, MessageSquare, Lock, Unlock, Layers, Sparkles, BookOpen, UtensilsCrossed, BarChart3, Megaphone, CalendarCheck, Puzzle, Search, Grid3X3, ImagePlus, Quote, MapPin, Mail, Hash, Minus, GripVertical, ChevronRight, Play, Zap, Award, Target, HeartHandshake, Share2, ListOrdered, Columns, SeparatorHorizontal, Code2, HelpCircle, Building2, MousePointerClick } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 const TEMPLATES = [
   { id: 'Modern Dark', name: 'Modern Dark', bg: '#0b0c10', text: '#ffffff', accent: '#6366f1', cardBg: '#111218', desc: 'Canlı indigo vurgularıyla şık koyu tema' },

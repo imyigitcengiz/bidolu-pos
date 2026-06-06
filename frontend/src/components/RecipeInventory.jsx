@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, Plus, Trash2, PlusCircle, ShoppingCart, Activity } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function RecipeInventory() {
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory', 'recipes', or 'audit'

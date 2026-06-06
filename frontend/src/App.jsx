@@ -123,7 +123,7 @@ function App() {
   useEffect(() => {
     const poll = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/orders/?active=true');
+        const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/orders/?active=true`);
         const data = await res.json();
         if (!Array.isArray(data)) return;
         
@@ -156,7 +156,7 @@ function App() {
   useEffect(() => {
     const pollStock = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/low-stock/');
+        const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/low-stock/`);
         const data = await res.json();
         setLowStockCount(data.count || 0);
       } catch (e) { /* silent */ }
@@ -193,7 +193,7 @@ function App() {
 
   const fetchRestaurantProfile = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/restaurant-profile/');
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/restaurant-profile/`);
       const data = await res.json();
       if (data && data.length > 0) {
         setRestaurantProfile(data[0]);

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qw9h&6z#8chodrmwnu_5^o+8m!8gm2)r1579(ifrhd@-sa(jf)'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-qw9h&6z#8chodrmwnu_5^o+8m!8gm2)r1579(ifrhd@-sa(jf)')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -75,11 +76,12 @@ WSGI_APPLICATION = 'bidolupos.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+# Use /app/data/db.sqlite3 in Docker for volume persistence, fallback to local for dev
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': os.environ.get('DJANGO_DB_PATH', BASE_DIR / 'db.sqlite3'),
     }
 }
 
@@ -122,9 +124,25 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.environ.get('DJANGO_MEDIA_ROOT', BASE_DIR / 'media')
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('DJANGO_CORS_ALLOW_ALL', 'True').lower() in ('true', '1', 'yes')
+
+_cors_origins = os.environ.get('DJANGO_CORS_ALLOWED_ORIGINS', '')
+if _cors_origins:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in _cors_origins.split(',') if origin.strip()]
+
+# CSRF trusted origins (required for Docker/proxy setups)
+_csrf_origins = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '')
+if _csrf_origins:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in _csrf_origins.split(',') if origin.strip()]
+
+# Security settings for production
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-

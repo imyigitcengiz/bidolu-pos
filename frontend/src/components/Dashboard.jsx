@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Users, ShoppingBag, PieChart, CreditCard, DollarSign } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Award, DollarSign, Activity, FileText, ShoppingBag } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function Reports() {
   const [sales, setSales] = useState([]);
