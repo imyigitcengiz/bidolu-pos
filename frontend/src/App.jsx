@@ -79,7 +79,10 @@ const UpgradePage = ({ requiredPlan, featureName, currentPlan, setCurrentTab }) 
 };
 
 function App() {
-  const [isLanding, setIsLanding] = useState(true);
+  const [isLanding, setIsLanding] = useState(() => {
+    const saved = localStorage.getItem('isLanding');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [currentTab, setCurrentTab] = useState(() => {
     return localStorage.getItem('currentTab') || 'dashboard';
   });
@@ -273,6 +276,9 @@ function App() {
     fetchRestaurantProfile();
   }, []);
 
+  React.useEffect(() => {
+    localStorage.setItem('isLanding', JSON.stringify(isLanding));
+  }, [isLanding]);
 
   React.useEffect(() => {
     localStorage.setItem('currentTab', currentTab);
