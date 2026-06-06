@@ -1,18 +1,18 @@
 from rest_framework import viewsets, status, views
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django.db.models import Sum, Count, F
+from django.db.models import Sum, Count, F, Q
 from django.utils import timezone
 from datetime import timedelta
 from django.db import transaction
 from .models import (
-    Table, Category, MenuItem, Order, OrderItem, Payment,
+    Table, Category, MenuItem, MenuItemModifier, Order, OrderItem, Payment,
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
     StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
     CashTransaction, StockAudit, StockAuditItem, Customer, WhatsAppConfig,
 )
 from .serializers import (
-    TableSerializer, CategorySerializer, MenuItemSerializer,
+    TableSerializer, CategorySerializer, MenuItemSerializer, MenuItemModifierSerializer,
     OrderSerializer, OrderItemSerializer, PaymentSerializer,
     OrderChannelSerializer, CashRegisterSerializer, IngredientSerializer,
     RecipeSerializer, RecipeIngredientSerializer, StaffMemberSerializer,
@@ -94,7 +94,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             
             quantity = int(item.get('quantity', 1))
             note = item.get('note', '')
-            price = menu_item.price
+            modifier_text = item.get('modifier_text', '')
+            modifier_extra = float(item.get('modifier_extra', 0))
+            price = float(menu_item.price) + modifier_extra
             
             OrderItem.objects.create(
                 order=order,
@@ -102,6 +104,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                 quantity=quantity,
                 price=price,
                 note=note,
+                modifier_text=modifier_text,
+                modifier_extra=modifier_extra,
                 status='preparing'
             )
             total_amount += price * quantity
@@ -188,6 +192,28 @@ class OrderViewSet(viewsets.ModelViewSet):
             'order': OrderSerializer(order).data,
             'whatsapp_simulated': whatsapp_simulated
         })
+
+    @action(detail=True, methods=['post'])
+    def apply_discount(self, request, pk=None):
+        """Apply or remove discount on an active order."""
+        order = self.get_object()
+        if order.status in ['completed', 'cancelled']:
+            return Response({'error': 'Tamamlanmış sipairişe indirim uygulanamaz'}, status=status.HTTP_400_BAD_REQUEST)
+
+        discount_type = request.data.get('discount_type', 'none')
+        discount_value = float(request.data.get('discount_value', 0))
+        discount_reason = request.data.get('discount_reason', '')
+
+        if discount_type not in ['none', 'percent', 'fixed']:
+            return Response({'error': 'Geçersiz indirim tipi'}, status=status.HTTP_400_BAD_REQUEST)
+        if discount_type == 'percent' and not (0 <= discount_value <= 100):
+            return Response({'error': 'Yüzde 0-100 arasında olmalıdır'}, status=status.HTTP_400_BAD_REQUEST)
+
+        order.discount_type = discount_type
+        order.discount_value = discount_value
+        order.discount_reason = discount_reason
+        order.save()
+        return Response(OrderSerializer(order).data)
 
 class OrderItemViewSet(viewsets.ModelViewSet):
     queryset = OrderItem.objects.all().order_by('-id')
@@ -425,5 +451,30 @@ class WhatsAppConfigViewSet(viewsets.ModelViewSet):
             'status': 'success',
             'message': f'{len(recipients)} müşteriye kampanya gönderimi simüle edildi.',
             'logs': logs
+        })
+
+class MenuItemModifierViewSet(viewsets.ModelViewSet):
+    queryset = MenuItemModifier.objects.all().order_by('id')
+    serializer_class = MenuItemModifierSerializer
+
+    def get_queryset(self):
+        queryset = MenuItemModifier.objects.all().order_by('id')
+        menu_item_id = self.request.query_params.get('menu_item', None)
+        if menu_item_id is not None:
+            queryset = queryset.filter(menu_item_id=menu_item_id)
+        return queryset
+
+class LowStockView(views.APIView):
+    """Returns all ingredients where stock_quantity <= minimum_stock (and minimum_stock > 0)."""
+    def get(self, request):
+        low = Ingredient.objects.filter(
+            minimum_stock__gt=0,
+            stock_quantity__lte=F('minimum_stock')
+        ).order_by('name')
+        from .serializers import IngredientSerializer
+        data = IngredientSerializer(low, many=True).data
+        return Response({
+            'count': low.count(),
+            'items': data
         })
 

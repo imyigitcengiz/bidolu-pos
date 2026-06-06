@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 import LandingPage from './components/LandingPage';
 import Dashboard from './components/Dashboard';
@@ -41,6 +41,94 @@ function App() {
   });
 
   const [extensionsSubView, setExtensionsSubView] = useState(null);
+
+  // ── Notification & Low-stock state ──
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const lastOrderIdRef = useRef(null);
+  const notifPanelRef = useRef(null);
+
+  // Play a soft ding using Web Audio API
+  const playDing = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.6);
+    } catch (e) { /* silent fail */ }
+  }, []);
+
+  // Poll for new active orders every 8 seconds
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/orders/?active=true');
+        const data = await res.json();
+        if (!Array.isArray(data)) return;
+        
+        const activeOrders = data.filter(o => o.status === 'preparing' || o.status === 'ready');
+        const latestId = activeOrders.length > 0 ? activeOrders[0].id : null;
+        
+        if (lastOrderIdRef.current !== null && latestId && latestId > lastOrderIdRef.current) {
+          // New order arrived!
+          playDing();
+          const newOrder = activeOrders[0];
+          setNotifications(prev => [{
+            id: newOrder.id,
+            title: `Yeni Sipariş — ${newOrder.table_name}`,
+            body: `${newOrder.items?.length || 0} kalem ürün • ${parseFloat(newOrder.total_amount).toLocaleString('tr-TR')} ₺`,
+            time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+            read: false,
+            type: 'order'
+          }, ...prev].slice(0, 20));
+          setUnreadCount(c => c + 1);
+        }
+        lastOrderIdRef.current = latestId || lastOrderIdRef.current;
+      } catch (e) { /* silent */ }
+    };
+    poll();
+    const interval = setInterval(poll, 8000);
+    return () => clearInterval(interval);
+  }, [playDing]);
+
+  // Poll low-stock every 30 seconds
+  useEffect(() => {
+    const pollStock = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/low-stock/');
+        const data = await res.json();
+        setLowStockCount(data.count || 0);
+      } catch (e) { /* silent */ }
+    };
+    pollStock();
+    const interval = setInterval(pollStock, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Close notification panel on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (notifPanelRef.current && !notifPanelRef.current.contains(e.target)) {
+        setShowNotifPanel(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const markAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setUnreadCount(0);
+  };
 
   const [restaurantProfile, setRestaurantProfile] = useState({
     ext_qr_menu_enabled: true,
@@ -315,10 +403,19 @@ function App() {
             <li 
               className={`nav-item ${currentTab === 'recipe-stok' ? 'active' : ''}`}
               onClick={() => { setCurrentTab('recipe-stok'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
+              style={{ padding: '10px 12px', fontSize: '13px', position: 'relative' }}
             >
               <Layers size={18} />
               <span>Reçete & Stok</span>
+              {lowStockCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: '6px', right: '8px',
+                  background: '#ef4444', color: '#fff',
+                  fontSize: '10px', fontWeight: '700',
+                  borderRadius: '10px', padding: '1px 6px',
+                  minWidth: '18px', textAlign: 'center'
+                }}>{lowStockCount}</span>
+              )}
             </li>
             <li 
               className={`nav-item ${currentTab === 'cash-register' ? 'active' : ''}`}
@@ -455,8 +552,62 @@ function App() {
               <Calendar size={16} />
               <span>{formattedDate}</span>
             </div>
-            <div className="date-badge" style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <Bell size={18} />
+            {/* Notification Bell */}
+            <div ref={notifPanelRef} style={{ position: 'relative' }}>
+              <div
+                className="date-badge"
+                style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative' }}
+                onClick={() => { setShowNotifPanel(v => !v); if (unreadCount > 0) markAllRead(); }}
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '6px', right: '6px',
+                    background: '#ef4444', color: '#fff',
+                    fontSize: '9px', fontWeight: '700',
+                    borderRadius: '10px', padding: '1px 5px',
+                    minWidth: '16px', textAlign: 'center',
+                    lineHeight: '14px'
+                  }}>{unreadCount}</span>
+                )}
+              </div>
+              {showNotifPanel && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                  width: '320px', background: 'var(--bg-card)',
+                  border: '1px solid var(--panel-border)', borderRadius: '14px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 1000, overflow: 'hidden'
+                }}>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: '700', fontSize: '14px' }}>🔔 Bildirimler</span>
+                    {notifications.length > 0 && (
+                      <button onClick={markAllRead} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '11px', cursor: 'pointer' }}>Tümünü okundu işaretle</button>
+                    )}
+                  </div>
+                  <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                        Henüz bildirim yok
+                      </div>
+                    ) : notifications.map((n, i) => (
+                      <div key={i} style={{
+                        padding: '12px 16px',
+                        borderBottom: '1px solid var(--panel-border)',
+                        background: n.read ? 'transparent' : 'rgba(99,102,241,0.04)',
+                        display: 'flex', gap: '12px', alignItems: 'flex-start'
+                      }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '14px' }}>🛒</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: '600' }}>{n.title}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{n.body}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>{n.time}</div>
+                        </div>
+                        {!n.read && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--primary)', marginTop: '5px', flexShrink: 0 }} />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>

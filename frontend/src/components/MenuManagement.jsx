@@ -6,7 +6,14 @@ const API_BASE = 'http://localhost:8000/api';
 export default function MenuManagement() {
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
-  const [activeTab, setActiveTab] = useState('items'); // 'items' or 'categories'
+  const [activeTab, setActiveTab] = useState('items'); // 'items' | 'categories' | 'modifiers'
+
+  // Modifier state
+  const [selectedItemForMod, setSelectedItemForMod] = useState('');
+  const [modName, setModName] = useState('');
+  const [modPrice, setModPrice] = useState('0');
+  const [modRequired, setModRequired] = useState(false);
+  const [itemModifiers, setItemModifiers] = useState([]);
   
   // Category Form State
   const [catName, setCatName] = useState('');
@@ -25,6 +32,57 @@ export default function MenuManagement() {
     fetchCategories();
     fetchMenuItems();
   }, []);
+
+  const fetchItemModifiers = async (itemId) => {
+    if (!itemId) return;
+    try {
+      const res = await fetch(`${API_BASE}/menu-item-modifiers/?menu_item=${itemId}`);
+      const data = await res.json();
+      setItemModifiers(data);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleAddModifier = async (e) => {
+    e.preventDefault();
+    if (!selectedItemForMod || !modName.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/menu-item-modifiers/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          menu_item: parseInt(selectedItemForMod),
+          name: modName.trim(),
+          price_extra: parseFloat(modPrice) || 0,
+          is_required: modRequired,
+          is_available: true
+        })
+      });
+      if (res.ok) {
+        setModName('');
+        setModPrice('0');
+        setModRequired(false);
+        fetchItemModifiers(selectedItemForMod);
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDeleteModifier = async (id) => {
+    try {
+      await fetch(`${API_BASE}/menu-item-modifiers/${id}/`, { method: 'DELETE' });
+      fetchItemModifiers(selectedItemForMod);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleToggleModifierAvail = async (mod) => {
+    try {
+      await fetch(`${API_BASE}/menu-item-modifiers/${mod.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_available: !mod.is_available })
+      });
+      fetchItemModifiers(selectedItemForMod);
+    } catch (err) { console.error(err); }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -170,19 +228,26 @@ export default function MenuManagement() {
     <div>
       {/* Sub-navigation Tabs */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-        <button 
+        <button
           className={`btn ${activeTab === 'items' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('items')}
           style={{ padding: '8px 16px', fontSize: '13px' }}
         >
           Ürün Yönetimi
         </button>
-        <button 
+        <button
           className={`btn ${activeTab === 'categories' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('categories')}
           style={{ padding: '8px 16px', fontSize: '13px' }}
         >
           Kategori Yönetimi
+        </button>
+        <button
+          className={`btn ${activeTab === 'modifiers' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('modifiers')}
+          style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          ➕ Seçenek / Modifier
         </button>
       </div>
 
@@ -401,6 +466,116 @@ export default function MenuManagement() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODIFIER TAB ── */}
+      {activeTab === 'modifiers' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '24px' }}>
+          {/* Add Modifier Form */}
+          <div className="card">
+            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>Seçenek Ekle</h3>
+            <form onSubmit={handleAddModifier} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="form-group">
+                <label>Ürün Seç</label>
+                <select
+                  className="form-control form-select"
+                  value={selectedItemForMod}
+                  onChange={(e) => { setSelectedItemForMod(e.target.value); fetchItemModifiers(e.target.value); }}
+                  required
+                >
+                  <option value="">-- Ürün seçin --</option>
+                  {menuItems.map(item => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Seçenek Adı</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={modName}
+                  onChange={(e) => setModName(e.target.value)}
+                  placeholder="Örn: Ekstra Peynir, Büyük Boy"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Ekstra Fiyat (₺)</label>
+                <input
+                  type="number"
+                  step="0.50"
+                  className="form-control"
+                  value={modPrice}
+                  onChange={(e) => setModPrice(e.target.value)}
+                  placeholder="0 = Ücretsiz"
+                />
+              </div>
+              <div className="checkbox-group">
+                <input
+                  type="checkbox"
+                  id="modRequired"
+                  checked={modRequired}
+                  onChange={(e) => setModRequired(e.target.checked)}
+                />
+                <label htmlFor="modRequired" style={{ cursor: 'pointer', fontSize: '13px' }}>Zorunlu Seçim</label>
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={!selectedItemForMod}>
+                <Plus size={16} /> Seçeneği Ekle
+              </button>
+            </form>
+          </div>
+
+          {/* Modifier List */}
+          <div className="card">
+            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>
+              {selectedItemForMod
+                ? `${menuItems.find(i => i.id === parseInt(selectedItemForMod))?.name || ''} — Seçenekler`
+                : 'Seçenekler'}
+            </h3>
+            {!selectedItemForMod ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                Sol taraftan bir ürün seçin
+              </div>
+            ) : itemModifiers.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                Bu ürüne henüz seçenek eklenmedi
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {itemModifiers.map(mod => (
+                  <div key={mod.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '12px 14px', borderRadius: '10px',
+                    border: '1px solid var(--panel-border)',
+                    background: mod.is_available ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.01)',
+                    opacity: mod.is_available ? 1 : 0.5
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: '600', fontSize: '13px' }}>{mod.name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {parseFloat(mod.price_extra) > 0 ? `+${parseFloat(mod.price_extra).toLocaleString('tr-TR')} ₺` : 'Ücretsiz'}
+                        {mod.is_required && <span style={{ marginLeft: '8px', color: '#f59e0b' }}>• Zorunlu</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        onClick={() => handleToggleModifierAvail(mod)}
+                        className={`badge ${mod.is_available ? 'badge-success' : 'badge-warning'}`}
+                        style={{ border: 'none', cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}
+                      >
+                        {mod.is_available ? 'Aktif' : 'Pasif'}
+                      </button>
+                      <button className="action-icon-btn delete" onClick={() => handleDeleteModifier(mod.id)}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

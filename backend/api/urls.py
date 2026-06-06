@@ -1,19 +1,22 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    TableViewSet, CategoryViewSet, MenuItemViewSet,
+    TableViewSet, CategoryViewSet, MenuItemViewSet, MenuItemModifierViewSet,
     OrderViewSet, OrderItemViewSet, DashboardStatsView,
     OrderChannelViewSet, CashRegisterViewSet, IngredientViewSet,
     RecipeViewSet, RecipeIngredientViewSet, StaffMemberViewSet,
     ExpenseViewSet, CourierViewSet, CourierLogViewSet, RestaurantProfileViewSet,
     CashTransactionViewSet, StockAuditViewSet, CustomerViewSet, WhatsAppConfigViewSet,
+    LowStockView,
 )
 
 router = DefaultRouter()
 router.register(r'tables', TableViewSet, basename='table')
 router.register(r'categories', CategoryViewSet, basename='category')
 router.register(r'menu-items', MenuItemViewSet, basename='menu-item')
+router.register(r'menu-item-modifiers', MenuItemModifierViewSet, basename='menuitemmodifier')
 router.register(r'orders', OrderViewSet, basename='order')
+router.register(r'order-items', OrderItemViewSet, basename='orderitem')
 router.register(r'order-channels', OrderChannelViewSet, basename='orderchannel')
 router.register(r'cash-registers', CashRegisterViewSet, basename='cashregister')
 router.register(r'ingredients', IngredientViewSet, basename='ingredient')
@@ -33,4 +36,5 @@ router.register(r'whatsapp-configs', WhatsAppConfigViewSet, basename='whatsappco
 urlpatterns = [
     path('', include(router.urls)),
     path('dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
+    path('low-stock/', LowStockView.as_view(), name='low-stock'),
 ]

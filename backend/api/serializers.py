@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (
-    Table, Category, MenuItem, Order, OrderItem, Payment,
+    Table, Category, MenuItem, MenuItemModifier, Order, OrderItem, Payment,
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
     StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
     CashTransaction, StockAudit, StockAuditItem, Customer, WhatsAppConfig,
@@ -16,9 +16,15 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = '__all__'
 
+class MenuItemModifierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MenuItemModifier
+        fields = '__all__'
+
 class MenuItemSerializer(serializers.ModelSerializer):
     category_name = serializers.ReadOnlyField(source='category.name')
     image = serializers.ImageField(required=False, allow_null=True)
+    modifiers = MenuItemModifierSerializer(many=True, read_only=True)
 
     class Meta:
         model = MenuItem
@@ -35,6 +41,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     table_name = serializers.ReadOnlyField(source='table.name')
+    discounted_total = serializers.ReadOnlyField()
 
     class Meta:
         model = Order
