@@ -176,16 +176,112 @@ function App() {
     localStorage.setItem('auth_user', JSON.stringify(updatedUser));
   };
 
-  // ── Keyboard Shortcuts ──
+  // ── Keyboard Shortcuts & Command Palette ──
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchIndex, setSearchIndex] = useState(0);
+  const searchInputRef = useRef(null);
+
+  const searchItems = [
+    { tab: 'dashboard', label: 'Yönetim Paneli', desc: 'İşletme performans özeti', icon: '📊', keywords: 'dashboard ana sayfa panel yönetim' },
+    { tab: 'tables', label: 'Masa Yönetimi', desc: 'Masaların durumunu takip edin', icon: '🍽️', keywords: 'masa table oturma' },
+    { tab: 'order-taking', label: 'Sipariş Alma', desc: 'Masa siparişi girin', icon: '📝', keywords: 'sipariş order alma girme' },
+    { tab: 'order-panel', label: 'Sipariş Paneli', desc: 'Entegrasyon siparişleri', icon: '📦', keywords: 'sipariş panel entegrasyon yemeksepeti getir' },
+    { tab: 'kitchen', label: 'Mutfak Ekranı', desc: 'Hazırlanacak siparişler', icon: '👨‍🍳', keywords: 'mutfak kitchen hazırlık' },
+    { tab: 'menu', label: 'Menü Yönetimi', desc: 'Kategori ve ürün yönetimi', icon: '📋', keywords: 'menü menu yemek ürün kategori' },
+    { tab: 'recipe-stok', label: 'Reçete & Stok', desc: 'Malzeme ve stok takibi', icon: '📦', keywords: 'reçete stok malzeme envanter inventory' },
+    { tab: 'cash-register', label: 'Kasa İşlemleri', desc: 'Nakit giriş-çıkışları', icon: '💰', keywords: 'kasa nakit ödeme para cash' },
+    { tab: 'personnel', label: 'Personel', desc: 'Çalışan ve rol yönetimi', icon: '👥', keywords: 'personel çalışan garson staff' },
+    { tab: 'crm', label: 'Müşteri CRM', desc: 'Müşteri kayıtları ve iletişim', icon: '📇', keywords: 'müşteri crm rehber customer iletişim' },
+    { tab: 'expenses', label: 'Gider Takibi', desc: 'Harcama ve fatura yönetimi', icon: '💸', keywords: 'gider harcama fatura expense masraf' },
+    { tab: 'couriers', label: 'Kurye Takibi', desc: 'Teslimat ve avans yönetimi', icon: '🛵', keywords: 'kurye teslimat delivery paket' },
+    { tab: 'reports', label: 'Raporlar', desc: 'Ciro ve kâr-zarar analizi', icon: '📈', keywords: 'rapor analiz ciro kâr zarar report' },
+    { tab: 'settings', label: 'Genel Ayarlar', desc: 'Profil ve plan ayarları', icon: '⚙️', keywords: 'ayar settings profil plan' },
+    { tab: 'qr-menu', label: 'QR Menü', desc: 'Masadan QR sipariş sistemi', icon: '📱', keywords: 'qr menu karekod sipariş' },
+    { tab: 'official-website', label: 'Web Sitesi', desc: 'Kurumsal tanıtım sitesi', icon: '🌐', keywords: 'web site website internet tanıtım' },
+    { tab: 'extensions', label: 'Eklentiler', desc: 'WhatsApp API ve pazaryeri', icon: '🧩', keywords: 'eklenti extension whatsapp marketplace' },
+    { tab: 'profile', label: 'Profilim', desc: 'Kişisel bilgiler ve şifre', icon: '👤', keywords: 'profil hesap şifre email' },
+    { tab: 'super-admin', label: 'Sistem Yönetimi', desc: 'Kullanıcı ve rol yönetimi', icon: '🛡️', keywords: 'admin sistem kullanıcı rol yetki', role: 'super_admin' },
+    { action: 'logout', label: 'Çıkış Yap', desc: 'Oturumu sonlandır', icon: '🚪', keywords: 'çıkış logout oturum' },
+    { action: 'landing', label: 'Tanıtım Sayfası', desc: 'Ana tanıtım sayfasına dön', icon: '🏠', keywords: 'tanıtım landing ana sayfa' },
+  ];
+
+  const filteredSearchItems = searchQuery.trim()
+    ? searchItems.filter(item => {
+        if (item.role && currentUser?.role !== item.role) return false;
+        const q = searchQuery.toLowerCase();
+        return item.label.toLowerCase().includes(q)
+          || item.desc.toLowerCase().includes(q)
+          || item.keywords.toLowerCase().includes(q);
+      })
+    : searchItems.filter(item => !(item.role && currentUser?.role !== item.role));
+
+  const handleSearchSelect = (item) => {
+    setShowSearch(false);
+    setSearchQuery('');
+    setSearchIndex(0);
+    if (item.action === 'logout') {
+      handleLogout();
+    } else if (item.action === 'landing') {
+      setIsLanding(true);
+    } else if (item.tab) {
+      setCurrentTab(item.tab);
+      setSelectedTable(null);
+    }
+  };
+
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [showSearch]);
+
+  // Reset index when query changes
+  useEffect(() => {
+    setSearchIndex(0);
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Handle search modal keys first
+      if (showSearch) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setShowSearch(false);
+          setSearchQuery('');
+          return;
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSearchIndex(i => Math.min(i + 1, filteredSearchItems.length - 1));
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSearchIndex(i => Math.max(i - 1, 0));
+          return;
+        }
+        if (e.key === 'Enter' && filteredSearchItems.length > 0) {
+          e.preventDefault();
+          handleSearchSelect(filteredSearchItems[searchIndex]);
+          return;
+        }
+        return; // Don't process other shortcuts while search is open
+      }
+
       // Don't trigger shortcuts when typing in inputs
       const tag = e.target.tagName.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
       // Don't trigger on landing/auth pages
       if (isLanding || !authToken) return;
+
+      // / key → open search
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setShowSearch(true);
+        return;
+      }
 
       // ? key → toggle shortcut help
       if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
@@ -235,13 +331,13 @@ function App() {
           'p': 'personnel',
           'e': 'expenses',
           'c': 'couriers',
-          'g': 'settings',    // G = Genel ayarlar
+          'g': 'settings',
           's': 'recipe-stok',
           'w': 'official-website',
           'q': 'qr-menu',
           'x': 'extensions',
           'a': 'super-admin',
-          'f': 'profile',     // F = proFil
+          'f': 'profile',
         };
         if (altMap[e.key.toLowerCase()]) {
           e.preventDefault();
@@ -254,7 +350,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLanding, authToken, showShortcuts, mobileMenuOpen]);
+  }, [isLanding, authToken, showShortcuts, showSearch, mobileMenuOpen, filteredSearchItems, searchIndex]);
 
 
   // ── Notification & Low-stock state ──
@@ -930,6 +1026,102 @@ function App() {
           {renderContent()}
         </section>
       </main>
+
+      {/* Command Palette Search */}
+      {showSearch && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowSearch(false); setSearchQuery(''); } }}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+            zIndex: 10001, display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            paddingTop: '12vh',
+          }}
+        >
+          <div style={{
+            background: 'var(--bg-card)', borderRadius: '16px', width: '100%', maxWidth: '520px',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.5)', border: '1px solid var(--panel-border)',
+            overflow: 'hidden',
+          }}>
+            {/* Search Input */}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--panel-border)', gap: '12px' }}>
+              <div style={{ color: 'var(--primary)', fontSize: '18px', fontWeight: '800', opacity: 0.6 }}>/</div>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Sayfa veya işlem ara..."
+                style={{
+                  flex: 1, border: 'none', outline: 'none', background: 'transparent',
+                  fontSize: '15px', fontWeight: '500', color: 'var(--text-main)',
+                  fontFamily: 'inherit',
+                }}
+              />
+              <kbd style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid var(--panel-border)',
+                borderRadius: '6px', padding: '2px 8px', fontSize: '10px', color: 'var(--text-muted)',
+                fontFamily: 'monospace',
+              }}>ESC</kbd>
+            </div>
+
+            {/* Results */}
+            <div style={{ maxHeight: '360px', overflowY: 'auto', padding: '6px' }}>
+              {filteredSearchItems.length === 0 ? (
+                <div style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  Sonuç bulunamadı
+                </div>
+              ) : filteredSearchItems.map((item, i) => (
+                <div
+                  key={item.tab || item.action}
+                  onClick={() => handleSearchSelect(item)}
+                  onMouseEnter={() => setSearchIndex(i)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '10px 14px', borderRadius: '10px', cursor: 'pointer',
+                    background: i === searchIndex ? 'rgba(99,102,241,0.1)' : 'transparent',
+                    border: i === searchIndex ? '1px solid rgba(99,102,241,0.2)' : '1px solid transparent',
+                    transition: 'all 0.1s',
+                  }}
+                >
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '10px',
+                    background: i === searchIndex ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '16px', flexShrink: 0,
+                  }}>
+                    {item.icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>{item.label}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.desc}</div>
+                  </div>
+                  {i === searchIndex && (
+                    <kbd style={{
+                      background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)',
+                      borderRadius: '5px', padding: '2px 8px', fontSize: '10px', fontWeight: '700',
+                      fontFamily: 'monospace', color: 'var(--primary)', flexShrink: 0,
+                    }}>↵</kbd>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer hint */}
+            <div style={{ padding: '10px 20px', borderTop: '1px solid var(--panel-border)', display: 'flex', gap: '16px', justifyContent: 'center' }}>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <kbd style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--panel-border)', borderRadius: '3px', padding: '1px 4px', fontSize: '9px', fontFamily: 'monospace' }}>↑↓</kbd> gezin
+              </span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <kbd style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--panel-border)', borderRadius: '3px', padding: '1px 4px', fontSize: '9px', fontFamily: 'monospace' }}>↵</kbd> seç
+              </span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <kbd style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--panel-border)', borderRadius: '3px', padding: '1px 4px', fontSize: '9px', fontFamily: 'monospace' }}>?</kbd> kısayollar
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Keyboard Shortcuts Help Overlay */}
       {showShortcuts && (
