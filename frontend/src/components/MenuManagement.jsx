@@ -369,7 +369,7 @@ export default function MenuManagement() {
                               style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--panel-border)' }} 
                             />
                           ) : (
-                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
+                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
                               Yok
                             </div>
                           )}
@@ -550,7 +550,7 @@ export default function MenuManagement() {
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '12px 14px', borderRadius: '10px',
                     border: '1px solid var(--panel-border)',
-                    background: mod.is_available ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.01)',
+                    background: mod.is_available ? 'rgba(0,0,0,0.02)' : 'rgba(0,0,0,0.01)',
                     opacity: mod.is_available ? 1 : 0.5
                   }}>
                     <div>

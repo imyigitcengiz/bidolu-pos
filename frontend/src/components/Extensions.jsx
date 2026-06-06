@@ -859,12 +859,12 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
               <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>Kampanya Gönderim Raporları & Kayıtları</h3>
               
               {campaignRunning && (
-                <div style={{ marginBottom: '24px', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--panel-border)' }}>
+                <div style={{ marginBottom: '24px', padding: '16px', background: 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--panel-border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
                     <span>Gönderim İlerlemesi</span>
                     <strong>%{campaignProgress}</strong>
                   </div>
-                  <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
                     <div style={{ width: `${campaignProgress}%`, height: '100%', background: '#25d366', transition: 'width 0.3s ease' }}></div>
                   </div>
                 </div>
@@ -892,7 +892,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                           padding: '12px', 
                           borderRadius: '8px', 
                           border: '1px solid var(--panel-border)', 
-                          background: 'rgba(255,255,255,0.01)',
+                          background: 'rgba(0,0,0,0.01)',
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center'

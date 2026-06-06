@@ -83,7 +83,7 @@ export default function Reports() {
       
       {/* Cards summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(18, 20, 29, 0.8))' }}>
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0.01) 100%)' }}>
           <h4 style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Brüt Ciro (Satışlar)</h4>
           <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--success)', marginTop: '8px' }}>
             {totalSalesRevenue.toLocaleString('tr-TR')} ₺
@@ -91,7 +91,7 @@ export default function Reports() {
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Tüm tamamlanan siparişler</span>
         </div>
 
-        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.05), rgba(18, 20, 29, 0.8))' }}>
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.06) 0%, rgba(244, 63, 94, 0.01) 100%)' }}>
           <h4 style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Toplam Gider</h4>
           <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--danger)', marginTop: '8px' }}>
             {totalExpenseAmt.toLocaleString('tr-TR')} ₺
@@ -99,7 +99,7 @@ export default function Reports() {
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Maaşlar, faturalar ve malzeme alımları</span>
         </div>
 
-        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(18, 20, 29, 0.8))' }}>
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(99, 102, 241, 0.01) 100%)' }}>
           <h4 style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Net Kâr / Zarar</h4>
           <h2 style={{ fontSize: '28px', fontWeight: '800', color: netProfit >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: '8px' }}>
             {netProfit.toLocaleString('tr-TR')} ₺
@@ -123,7 +123,7 @@ export default function Reports() {
                     <span style={{ fontWeight: '500' }}>{channel}</span>
                     <span>{amt.toLocaleString('tr-TR')} ₺ ({pct.toFixed(1)}%)</span>
                   </div>
-                  <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
                     <div 
                       style={{ 
                         height: '100%', 
@@ -156,7 +156,7 @@ export default function Reports() {
                       <span style={{ fontWeight: '500' }}>{cat}</span>
                       <span>{amt.toLocaleString('tr-TR')} ₺ ({pct.toFixed(1)}%)</span>
                     </div>
-                    <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
                       <div 
                         style={{ 
                           height: '100%', 

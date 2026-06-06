@@ -18,10 +18,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from api.views import public_website_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
+    path('w/<str:slug>/', public_website_view, name='public_website_view'),
+    path('w/<str:slug>/<str:page_slug>/', public_website_view, name='public_website_subpage'),
 ]
 
 if settings.DEBUG:

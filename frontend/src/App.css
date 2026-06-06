@@ -43,7 +43,7 @@
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.5px;
-  background: linear-gradient(to right, #ffffff, #c7d2fe);
+  background: linear-gradient(to right, var(--primary), var(--accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -68,8 +68,8 @@
 }
 
 .nav-item:hover, .nav-item.active {
-  color: white;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--primary);
+  background: var(--primary-glow);
 }
 
 .nav-item.active {
@@ -153,7 +153,7 @@
 
 .stat-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(79, 70, 229, 0.2);
 }
 
 .stat-header {
@@ -235,8 +235,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: #f8fafc;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
 }
 
@@ -250,7 +250,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -347,7 +347,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(0, 0, 0, 0.03);
   color: var(--text-muted);
   transition: var(--transition);
 }
@@ -380,8 +380,8 @@
 
 .table-box-amount {
   font-weight: 600;
-  color: white;
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+  background: rgba(0, 0, 0, 0.06);
   padding: 2px 10px;
   border-radius: 20px;
   font-size: 13px;
@@ -444,7 +444,7 @@
 
 .menu-item-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(79, 70, 229, 0.2);
 }
 
 .menu-item-name {
@@ -473,7 +473,7 @@
 
 .menu-item-price {
   font-weight: 700;
-  color: white;
+  color: var(--primary);
 }
 
 .add-item-btn {
@@ -528,8 +528,8 @@
   justify-content: space-between;
   align-items: flex-start;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: #f8fafc;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 10px;
   gap: 10px;
 }
@@ -566,9 +566,9 @@
 }
 
 .qty-btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.04);
   border: 1px solid var(--panel-border);
-  color: white;
+  color: var(--text-main);
   width: 24px;
   height: 24px;
   border-radius: 6px;
@@ -608,7 +608,7 @@
 .totals-row.grand {
   font-size: 20px;
   font-weight: 700;
-  color: white;
+  color: var(--text-main);
   margin-top: 8px;
 }
 
@@ -641,12 +641,12 @@
 }
 
 .btn.btn-secondary {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.04);
   border: 1px solid var(--panel-border);
   color: var(--text-main);
 }
 .btn.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .btn.btn-success {
@@ -724,7 +724,7 @@
   align-items: flex-start;
   padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .kitchen-item.served {
@@ -776,10 +776,10 @@
 .form-control {
   width: 100%;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--panel-border);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
-  color: white;
+  color: var(--text-main);
   font-family: var(--font);
   font-size: 14px;
   transition: var(--transition);
@@ -788,12 +788,12 @@
 .form-control:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 10px var(--primary-glow);
+  box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 .form-select {
   appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%2364748b' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
   background-repeat: no-repeat;
   background-position: right 12px center;
 }
@@ -829,13 +829,13 @@
 }
 
 .modal-content {
-  background: #0f111a;
-  border: 1px solid var(--panel-border);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 20px;
   width: 100%;
   max-width: 500px;
   padding: 32px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
   animation: modal-enter 0.3s ease-out;
 }
 
@@ -871,7 +871,7 @@
 }
 
 .close-btn:hover {
-  color: white;
+  color: var(--text-main);
 }
 
 .payment-methods-grid {
@@ -883,7 +883,7 @@
 
 .pay-method-card {
   border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.02);
+  background: #f8fafc;
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -895,7 +895,8 @@
 }
 
 .pay-method-card:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(79, 70, 229, 0.04);
+  border-color: rgba(79, 70, 229, 0.2);
 }
 
 .pay-method-card.active {
@@ -913,8 +914,8 @@
 }
 
 .bill-summary {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--panel-border);
+  background: #f8fafc;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 24px;
@@ -935,7 +936,7 @@
   font-size: 18px;
   display: flex;
   justify-content: space-between;
-  color: white;
+  color: var(--text-main);
 }
 
 /* Management Tables */
@@ -957,7 +958,7 @@
 }
 
 .mgmt-table th {
-  background: rgba(255, 255, 255, 0.02);
+  background: #f8fafc;
   color: var(--text-muted);
   font-weight: 500;
   font-size: 13px;
@@ -968,7 +969,7 @@
 }
 
 .mgmt-table tr:hover td {
-  background: rgba(255, 255, 255, 0.01);
+  background: rgba(79, 70, 229, 0.03);
 }
 
 .badge {
@@ -993,7 +994,7 @@
 }
 
 .action-icon-btn:hover {
-  color: white;
+  color: var(--primary);
 }
 
 .action-icon-btn.delete:hover {
@@ -1002,7 +1003,7 @@
 
 /* Quick Loading Spinner */
 .spinner {
-  border: 3px solid rgba(255, 255, 255, 0.1);
+  border: 3px solid rgba(79, 70, 229, 0.12);
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -1068,7 +1069,7 @@
   border-bottom: 1px solid var(--panel-border);
   position: sticky;
   top: 0;
-  background: rgba(9, 10, 15, 0.8);
+  background: rgba(248, 250, 252, 0.95);
   backdrop-filter: var(--glass-blur);
   z-index: 200;
 }
@@ -1093,7 +1094,7 @@
 }
 
 .landing-nav a:hover {
-  color: white;
+  color: var(--primary);
 }
 
 /* Hero Section */
@@ -1155,10 +1156,10 @@
 }
 
 .hero-mockup-frame {
-  background: #0f111a;
-  border: 1px solid var(--panel-border);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 16px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   transform: rotateX(5deg) rotateY(-10deg) rotateZ(2deg);
   transition: var(--transition);
@@ -1169,7 +1170,7 @@
 }
 
 .mockup-header {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.03);
   border-bottom: 1px solid var(--panel-border);
   padding: 12px 16px;
   display: flex;
@@ -1199,7 +1200,7 @@
 
 .mockup-sidebar {
   width: 50px;
-  background: rgba(255, 255, 255, 0.01);
+  background: rgba(0, 0, 0, 0.02);
   border-right: 1px solid var(--panel-border);
 }
 
@@ -1219,7 +1220,7 @@
 .mockup-widget {
   flex: 1;
   height: 50px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.03);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
 }
@@ -1272,7 +1273,7 @@
 
 .feature-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(79, 70, 229, 0.2);
 }
 
 .feature-icon {
@@ -1319,7 +1320,7 @@
 
 .price-card.popular {
   border-color: var(--primary);
-  background: rgba(18, 20, 29, 0.9);
+  background: rgba(79, 70, 229, 0.04);
   transform: scale(1.03);
 }
 
@@ -1345,7 +1346,7 @@
 }
 
 .price-card.popular .plan-name {
-  color: white;
+  color: var(--primary);
 }
 
 .plan-price {
@@ -1387,11 +1388,11 @@
 }
 
 .plan-features li.disabled {
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(0, 0, 0, 0.3);
 }
 
 .plan-features li.disabled svg {
-  color: rgba(255, 255, 255, 0.15);
+  color: rgba(0, 0, 0, 0.2);
 }
 
 /* Testimonials */
@@ -1478,14 +1479,14 @@
 }
 
 .footer-links a:hover {
-  color: white;
+  color: var(--primary);
 }
 
 .footer-bottom {
   text-align: center;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.15);
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  color: rgba(0, 0, 0, 0.35);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
   padding-top: 24px;
 }
 

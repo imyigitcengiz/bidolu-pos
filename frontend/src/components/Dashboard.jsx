@@ -137,7 +137,7 @@ export default function Dashboard() {
                     y1={y} 
                     x2={svgWidth - paddingX} 
                     y2={y} 
-                    stroke="rgba(255,255,255,0.05)" 
+                    stroke="rgba(0,0,0,0.06)" 
                     strokeWidth="1" 
                   />
                 );

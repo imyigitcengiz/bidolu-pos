@@ -127,7 +127,7 @@ export default function Expenses() {
                   <tr key={exp.id}>
                     <td style={{ fontWeight: '500' }}>{exp.title}</td>
                     <td>
-                      <span className="badge badge-secondary" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                      <span className="badge badge-secondary" style={{ background: 'rgba(0,0,0,0.05)' }}>
                         {exp.category}
                       </span>
                     </td>
@@ -153,7 +153,7 @@ export default function Expenses() {
       {/* Stats Summary & Add Form */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {/* Total Expense Card */}
-        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.05), rgba(18, 20, 29, 0.8))' }}>
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.06) 0%, rgba(244, 63, 94, 0.01) 100%)' }}>
           <h4 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px' }}>Toplam Harcama</h4>
           <h2 style={{ fontSize: '32px', fontWeight: '800', color: 'var(--danger)' }}>
             {totalExpense.toLocaleString('tr-TR')} ₺

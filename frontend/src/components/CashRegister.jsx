@@ -158,7 +158,7 @@ export default function CashRegister() {
                     borderRadius: '12px', 
                     border: '1px solid', 
                     borderColor: selectedRegister?.id === reg.id ? 'var(--primary)' : 'var(--panel-border)',
-                    background: selectedRegister?.id === reg.id ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.02)',
+                    background: selectedRegister?.id === reg.id ? 'rgba(99, 102, 241, 0.1)' : 'rgba(0,0,0,0.02)',
                     cursor: 'pointer',
                     transition: 'var(--transition)'
                   }}

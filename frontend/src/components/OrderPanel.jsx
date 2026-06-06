@@ -186,7 +186,7 @@ export default function OrderPanel() {
   // Get matching platform branding
   const getPlatformBranding = (tableName) => {
     const cleanName = tableName.replace(' Paket', '');
-    return PLATFORM_COLORS[cleanName] || { bg: 'rgba(255,255,255,0.05)', text: '#fff', border: 'rgba(255,255,255,0.1)' };
+    return PLATFORM_COLORS[cleanName] || { bg: 'rgba(0,0,0,0.03)', text: '#334155', border: 'rgba(0,0,0,0.08)' };
   };
 
   const filteredOrders = activeTab === 'All' 
@@ -279,7 +279,7 @@ export default function OrderPanel() {
                 key={order.id} 
                 style={{ 
                   borderColor: branding.border, 
-                  background: `linear-gradient(135deg, ${branding.bg}, rgba(18, 20, 29, 0.8))`,
+                  background: `linear-gradient(135deg, ${branding.bg}, rgba(248, 250, 252, 0.8))`,
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '16px'
@@ -296,7 +296,7 @@ export default function OrderPanel() {
                         color: branding.text,
                         padding: '4px 8px',
                         borderRadius: '6px',
-                        background: 'rgba(255,255,255,0.05)',
+                        background: 'rgba(0,0,0,0.04)',
                         border: `1px solid ${branding.border}`
                       }}
                     >

@@ -167,7 +167,7 @@ export default function Personnel() {
         )}
 
         {/* Roles Details */}
-        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(18, 20, 29, 0.8))' }}>
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.06) 0%, rgba(168, 85, 247, 0.01) 100%)' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Shield size={18} style={{ color: 'var(--accent)' }} /> Rol Bilgilendirmesi
           </h3>

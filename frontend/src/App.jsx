@@ -45,7 +45,7 @@ const UpgradePage = ({ requiredPlan, featureName, currentPlan, setCurrentTab }) 
       minHeight: '60vh',
       padding: '40px',
       textAlign: 'center',
-      background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.4) 100%)',
+      background: 'linear-gradient(135deg, rgba(248, 250, 252, 0.8) 0%, rgba(241, 245, 249, 0.6) 100%)',
       borderRadius: '16px',
       border: '1px solid var(--panel-border)',
       maxWidth: '640px',
@@ -544,7 +544,7 @@ function App() {
               display: 'flex', 
               flexDirection: 'column', 
               gap: '4px', 
-              borderLeft: '1px solid rgba(255,255,255,0.06)', 
+              borderLeft: '1px solid rgba(0,0,0,0.06)', 
               marginLeft: '22px', 
               marginBottom: '10px', 
               marginTop: '2px' 

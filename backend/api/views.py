@@ -478,3 +478,634 @@ class LowStockView(views.APIView):
             'items': data
         })
 
+
+def public_website_view(request, slug, page_slug=None):
+    import json
+    from django.shortcuts import get_object_or_404
+    from django.http import HttpResponse
+    import datetime
+
+    profile = get_object_or_404(RestaurantProfile, website_slug=slug)
+    
+    # Template configuration
+    template_val = profile.website_template or 'Modern Dark'
+    parts = template_val.split('|')
+    tpl_id = parts[0] if parts else 'Modern Dark'
+    typography = parts[1] if len(parts) > 1 else 'Sans-serif'
+    
+    if tpl_id == 'Elegant Gold':
+        bg = '#0f0e0c'
+        text = '#f3e5c8'
+        default_accent = '#d4af37'
+        card_bg = '#1a1815'
+    elif tpl_id == 'Cozy Retro':
+        bg = '#f4ede4'
+        text = '#2c221e'
+        default_accent = '#d96a3b'
+        card_bg = '#ede5dc'
+    elif tpl_id == 'Minimal Light':
+        bg = '#ffffff'
+        text = '#111827'
+        default_accent = '#10b981'
+        card_bg = '#f9fafb'
+    else: # Modern Dark
+        bg = '#0b0c10'
+        text = '#ffffff'
+        default_accent = '#6366f1'
+        card_bg = '#111218'
+        
+    accent = profile.website_theme_color or default_accent
+    
+    if typography == 'Serif':
+        font = "'Playfair Display', Georgia, serif"
+    elif typography == 'Monospace':
+        font = "'Courier New', monospace"
+    else:
+        font = "'Outfit', 'Inter', system-ui, sans-serif"
+        
+    is_light = bg in ['#ffffff', '#f4ede4']
+    border_color = 'rgba(0,0,0,0.08)' if is_light else 'rgba(255,255,255,0.06)'
+    text_muted = 'rgba(0,0,0,0.6)' if is_light else 'rgba(255,255,255,0.6)'
+    year = datetime.datetime.now().year
+
+    # Load modular blocks
+    about_raw = profile.website_about_text or ''
+    blocks = []
+    seo_data = {}
+    pages_list = []
+    
+    if about_raw.strip().startswith('{'):
+        try:
+            parsed = json.loads(about_raw)
+            pages_list = parsed.get('pages', [])
+            blocks_fallback = parsed.get('blocks', [])
+            seo_fallback = parsed.get('seo', {})
+            
+            # Convert blocks-only format to pages format
+            if not pages_list and blocks_fallback:
+                pages_list = [{
+                    'id': 'home',
+                    'title': 'Ana Sayfa',
+                    'slug': 'home',
+                    'blocks': blocks_fallback,
+                    'seo': seo_fallback
+                }]
+        except Exception:
+            pass
+    elif about_raw.strip().startswith('['):
+        try:
+            blocks_fallback = json.loads(about_raw)
+            pages_list = [{
+                'id': 'home',
+                'title': 'Ana Sayfa',
+                'slug': 'home',
+                'blocks': blocks_fallback,
+                'seo': {}
+            }]
+        except Exception:
+            pass
+
+    # Resolve target page
+    target_slug = page_slug or 'home'
+    active_page = None
+    if pages_list:
+        for p in pages_list:
+            if p.get('slug') == target_slug or (target_slug == 'home' and p.get('id') == 'home'):
+                active_page = p
+                break
+        if not active_page:
+            # Fallback to home page or first page
+            for p in pages_list:
+                if p.get('id') == 'home':
+                    active_page = p
+                    break
+            if not active_page:
+                active_page = pages_list[0]
+
+    if active_page:
+        blocks = active_page.get('blocks', [])
+        seo_data = active_page.get('seo', {})
+    else:
+        blocks = []
+        seo_data = {}
+
+    # Build Navigation Links dynamically
+    nav_links = []
+    if pages_list:
+        for p in pages_list:
+            p_slug = p.get('slug', 'home')
+            p_title = p.get('title', 'Sayfa')
+            if p_slug == 'home' or p.get('id') == 'home':
+                url = f"/w/{slug}/"
+            else:
+                url = f"/w/{slug}/{p_slug}/"
+            
+            is_active = p_slug == target_slug or (target_slug == 'home' and p_slug == 'home')
+            style_attr = f'style="color:{accent}; font-weight:bold;"' if is_active else ''
+            nav_links.append(f'<a href="{url}" {style_attr}>{p_title}</a>')
+    else:
+        nav_links = [
+            f'<a href="/w/{slug}/">Anasayfa</a>',
+            '<a href="#about">Hikayemiz</a>',
+            '<a href="#menu">Menü</a>',
+            '<a href="#hours">İletişim</a>'
+        ]
+    nav_links_html = "".join(nav_links)
+
+    seo_title = seo_data.get('title') or (f"{profile.name} - Tanıtım Web Sitesi" if target_slug == 'home' else f"{active_page.get('title', 'Sayfa')} | {profile.name}")
+    seo_desc = seo_data.get('description') or "Taze malzemeler ve usta ellerden çıkan eşsiz lezzetlerle dolu restoranımıza hoş geldiniz!"
+    seo_keywords = seo_data.get('keywords') or f"{profile.name}, restoran, menü, yemek siparişi, rezervasyon"
+
+    # If no blocks loaded, use default fallback structure
+    if not blocks:
+        blocks = [
+            {
+                'id': 'hero-1',
+                'type': 'hero',
+                'title': 'Giriş',
+                'content': {
+                    'banner': profile.website_banner_text or 'Eşsiz Lezzetlerin Buluşma Noktası',
+                    'subtitle': 'Taze malzemelerle hazırlanan usta ellerden çıkan eşsiz tabaklar.',
+                    'button_text': 'Masa Rezervasyonu Yap',
+                    'button_url': '#reservation',
+                    'layout': 'center'
+                }
+            },
+            {
+                'id': 'about-1',
+                'type': 'about',
+                'title': 'Hikayemiz',
+                'content': {
+                    'text': about_raw or 'Yılların getirdiği tecrübe ve mutfak aşkıyla, misafirlerimize en taze ve en lezzetli yemekleri sunmak için her gün aynı heyecanla çalışıyoruz.',
+                    'image': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80',
+                    'layout': 'left'
+                }
+            },
+            {
+                'id': 'menu-1',
+                'type': 'menu',
+                'title': 'Öne Çıkan Lezzetler',
+                'content': {
+                    'layout': 'grid',
+                    'items': [
+                        {'name': 'Bidolu Kebap', 'description': 'Özel marine edilmiş kuzu kıyması, lavaş ve közlenmiş garnitür ile', 'price': '280', 'image': ''},
+                        {'name': 'Taş Fırın Lahmacun', 'description': 'Bol kıymalı harç, taze yeşillik ve limon ile', 'price': '85', 'image': ''},
+                        {'name': 'Ev Yapımı Künefe', 'description': 'Sıcak şerbet, eritilmiş peynir ve Antep fıstığı ile', 'price': '150', 'image': ''}
+                    ]
+                }
+            },
+            {
+                'id': 'hours-1',
+                'type': 'hours',
+                'title': 'İletişim & Çalışma Saatleri',
+                'content': {
+                    'layout': 'split',
+                    'address': 'Atatürk Mah. Fatih Cad. No:42, Ataşehir/İstanbul',
+                    'phone': '0216 555 44 33',
+                    'times': [
+                        {'day': 'Pazartesi - Cuma', 'hours': '11:00 - 23:00'},
+                        {'day': 'Cumartesi - Pazar', 'hours': '11:00 - 00:00'}
+                    ]
+                }
+            },
+            {
+                'id': 'reservation-1',
+                'type': 'reservation',
+                'title': 'Online Masa Rezervasyonu',
+                'content': {}
+            }
+        ]
+
+    # Generate sections html
+    sections_html = []
+    
+    for block in blocks:
+        b_type = block.get('type')
+        b_title = block.get('title', '')
+        b_content = block.get('content', {})
+        
+        if b_type == 'hero':
+            layout = b_content.get('layout', 'center')
+            banner = b_content.get('banner', 'Eşsiz Lezzetlerin Buluşma Noktası')
+            subtitle = b_content.get('subtitle', 'Taze malzemelerle hazırlanan usta ellerden çıkan eşsiz tabaklar.')
+            btn_text = b_content.get('button_text', 'Masa Rezervasyonu Yap')
+            image_url = b_content.get('image', 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80')
+            
+            res_btn = ''
+            if profile.website_enable_reservation and btn_text:
+                res_btn = f'''
+                <button onclick="document.getElementById('res-modal').style.display='flex'" class="btn-primary-custom" style="border:none; background:{accent}; color:{'#000000' if is_light else '#ffffff'}; padding:12px 28px; font-size:14px; border-radius:30px; font-weight:750; cursor:pointer; display:inline-flex; gap:8px; align-items:center; margin-top:16px; box-shadow: 0 4px 14px {accent}40; transition: transform 0.2s ease;">
+                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                     {btn_text}
+                </button>
+                '''
+                
+            if layout == 'split':
+                sections_html.append(f'''
+                <section style="padding: 60px 0; border-bottom: 1px solid {border_color};">
+                    <div class="container" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:40px; align-items:center;">
+                        <div style="flex: 1; min-width: 300px; text-align: left;">
+                            <h1 style="font-size:36px; font-weight:800; line-height:1.2; margin: 0 0 20px 0;">{banner}</h1>
+                            <p style="font-size:16px; opacity:0.8; line-height:1.6; margin-bottom:24px;">{subtitle}</p>
+                            {res_btn}
+                        </div>
+                        <div style="flex: 1; min-width: 300px;">
+                            <img src="{image_url}" style="width:100%; height:380px; object-fit:cover; border-radius:20px; box-shadow:0 20px 40px rgba(0,0,0,0.15);" alt="Hero" />
+                        </div>
+                    </div>
+                </section>
+                ''')
+            elif layout == 'glass':
+                sections_html.append(f'''
+                <section style="padding: 100px 0; background-image: url('{image_url}'); background-size: cover; background-position: center; position:relative; border-bottom: 1px solid {border_color};">
+                    <div style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1;"></div>
+                    <div class="container" style="position:relative; z-index:2; display:flex; justify-content:center;">
+                        <div style="background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); border-radius:24px; padding:60px 40px; max-width: 700px; width: 100%; text-align: center; box-shadow: 0 30px 60px rgba(0,0,0,0.35);">
+                            <h1 style="font-size:36px; font-weight:800; line-height:1.2; color:#ffffff; margin: 0 0 20px 0;">{banner}</h1>
+                            <p style="font-size:16px; color:rgba(255,255,255,0.9); line-height:1.6; margin-bottom:24px;">{subtitle}</p>
+                            {res_btn}
+                        </div>
+                    </div>
+                </section>
+                ''')
+            else: # center layout
+                sections_html.append(f'''
+                <section style="padding: 80px 0; text-align: center; background: linear-gradient(to bottom, {accent}08, transparent); border-bottom: 1px solid {border_color};">
+                    <div class="container" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                        <h1 style="font-size:42px; font-weight:800; line-height:1.2; max-width:800px; margin: 0 auto 20px auto;">{banner}</h1>
+                        <div style="width:60px; height:3px; background:{accent}; margin:0 auto 24px auto; border-radius:2px;"></div>
+                        <p style="font-size:16px; opacity:0.8; max-width:600px; margin:0 auto 24px auto; line-height:1.6;">{subtitle}</p>
+                        <div style="display:flex; justify-content:center; width:100%;">{res_btn}</div>
+                    </div>
+                </section>
+                ''')
+                
+        elif b_type == 'about':
+            layout = b_content.get('layout', 'left')
+            text = b_content.get('text', '')
+            image = b_content.get('image', 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80')
+            
+            if layout == 'minimal':
+                sections_html.append(f'''
+                <section id="about" style="padding: 60px 0; background: {card_bg if is_light else 'transparent'}; border-bottom: 1px solid {border_color};">
+                    <div class="container" style="max-width:800px; text-align:center;">
+                        <h2 style="font-size:28px; font-weight:800; margin-bottom:12px; color:{accent};">{b_title}</h2>
+                        <div style="width:40px; height:2px; background:{accent}; margin: 0 auto 20px auto;"></div>
+                        <p style="font-size:15px; line-height:1.8; opacity:0.85; margin:0;">{text}</p>
+                    </div>
+                </section>
+                ''')
+            else: # left or right
+                flex_dir = 'row' if layout == 'left' else 'row-reverse'
+                sections_html.append(f'''
+                <section id="about" style="padding: 60px 0; background: {card_bg if is_light else 'transparent'}; border-bottom: 1px solid {border_color};">
+                    <div class="container" style="display:flex; flex-direction:{flex_dir}; flex-wrap:wrap; gap:40px; align-items:center;">
+                        <div style="flex: 1.2; min-width: 300px; text-align: left;">
+                            <h2 style="font-size:28px; font-weight:800; margin-top:0; margin-bottom:16px; color:{accent};">{b_title}</h2>
+                            <div style="width:40px; height:2px; background:{accent}; margin-bottom:20px;"></div>
+                            <p style="font-size:15px; line-height:1.75; opacity:0.85; margin:0;">{text}</p>
+                        </div>
+                        <div style="flex: 1; min-width: 300px;">
+                            <img src="{image}" style="width:100%; height:320px; object-fit:cover; border-radius:16px; box-shadow:0 12px 30px rgba(0,0,0,0.1);" alt="About" />
+                        </div>
+                    </div>
+                </section>
+                ''')
+                
+        elif b_type == 'menu':
+            layout = b_content.get('layout', 'grid')
+            items = b_content.get('items', [])
+            
+            items_cards = []
+            
+            if layout == 'list':
+                for item in items:
+                    name = item.get('name', '')
+                    price = item.get('price', '0')
+                    desc = item.get('description', '')
+                    items_cards.append(f'''
+                    <div style="margin-bottom:20px; text-align:left;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+                            <span style="font-size:16px; font-weight:700; color:{text};">{name}</span>
+                            <div style="flex-grow:1; border-bottom:1px dotted {border_color}; margin:0 12px; height:1px;"></div>
+                            <span style="font-size:16px; font-weight:800; color:{accent};">{price} ₺</span>
+                        </div>
+                        {f'<p style="font-size:13px; color:{text_muted}; margin:0; line-height:1.4;">{desc}</p>' if desc else ''}
+                    </div>
+                    ''')
+                items_container = f'<div style="max-width:800px; margin:0 auto;">{"".join(items_cards)}</div>'
+            elif layout == 'minimal':
+                for item in items:
+                    name = item.get('name', '')
+                    price = item.get('price', '0')
+                    desc = item.get('description', '')
+                    items_cards.append(f'''
+                    <div style="background:{card_bg}; border:1px solid {border_color}; border-radius:12px; padding:20px; text-align:left;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <span style="font-weight:700; font-size:15px;">{name}</span>
+                            <span style="color:{accent}; font-weight:800; font-size:15px;">{price} ₺</span>
+                        </div>
+                        {f'<p style="font-size:12px; color:{text_muted}; margin:0; line-height:1.4;">{desc}</p>' if desc else ''}
+                    </div>
+                    ''')
+                items_container = f'<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:20px;">{"".join(items_cards)}</div>'
+            else: # grid with images
+                for item in items:
+                    name = item.get('name', '')
+                    price = item.get('price', '0')
+                    desc = item.get('description', '')
+                    img = item.get('image', '')
+                    
+                    img_html = f'<img src="{img}" style="width:100%; height:160px; object-fit:cover; border-radius:8px 8px 0 0;" alt="" />' if img else f'<div style="width:100%; height:120px; background:{accent}15; display:flex; align-items:center; justify-content:center; color:{accent}; font-size:24px; font-weight:bold; border-radius:8px 8px 0 0;">🍽️</div>'
+                    
+                    items_cards.append(f'''
+                    <div style="background:{card_bg}; border:1px solid {border_color}; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; text-align:left;">
+                        {img_html}
+                        <div style="padding:16px; display:flex; flex-direction:column; gap:6px; flex-grow:1;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-weight:700; font-size:14px;">{name}</span>
+                                <span style="color:{accent}; font-weight:800; font-size:14px;">{price} ₺</span>
+                            </div>
+                            {f'<p style="font-size:12px; color:{text_muted}; margin:0; line-height:1.4; flex-grow:1;">{desc}</p>' if desc else ''}
+                        </div>
+                    </div>
+                    ''')
+                items_container = f'<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:24px;">{"".join(items_cards)}</div>'
+                
+            sections_html.append(f'''
+            <section id="menu" style="padding: 60px 0; border-bottom: 1px solid {border_color};">
+                <div class="container">
+                    <h2 style="font-size:28px; font-weight:800; margin-bottom:12px; color:{accent}; text-align:center;">{b_title}</h2>
+                    <div style="width:40px; height:2px; background:{accent}; margin:0 auto 40px auto;"></div>
+                    {items_container}
+                </div>
+            </section>
+            ''')
+            
+        elif b_type == 'testimonials':
+            layout = b_content.get('layout', 'grid')
+            quotes = b_content.get('quotes', [])
+            
+            quotes_html = []
+            
+            if layout == 'spotlight':
+                if quotes:
+                    q = quotes[0]
+                    stars = '⭐' * int(q.get('rating', 5))
+                    quotes_html.append(f'''
+                    <div style="max-width:700px; margin:0 auto; background:{card_bg}; padding:40px; border-radius:20px; border:1px solid {border_color}; box-shadow:0 15px 35px rgba(0,0,0,0.05); text-align:center; position:relative;">
+                        <span style="font-size:80px; color:{accent}15; position:absolute; top:20px; left:30px; font-family:serif; line-height:0; pointer-events:none;">“</span>
+                        <div style="color:{accent}; font-size:14px; margin-bottom:16px;">{stars}</div>
+                        <p style="font-size:18px; font-style:italic; line-height:1.7; margin:0 0 20px 0; position:relative; z-index:2;">"{q.get('text', '')}"</p>
+                        <span style="font-size:14px; font-weight:750; color:{accent}; display:block;">- {q.get('name', '')}</span>
+                    </div>
+                    ''')
+                quotes_container = "".join(quotes_html)
+            else: # grid layout
+                for q in quotes:
+                    stars = '⭐' * int(q.get('rating', 5))
+                    quotes_html.append(f'''
+                    <div style="background:{card_bg}; border:1px solid {border_color}; border-radius:12px; padding:24px; text-align:left; box-shadow:0 4px 15px rgba(0,0,0,0.02);">
+                        <div style="color:{accent}; font-size:11px; margin-bottom:10px;">{stars}</div>
+                        <p style="font-size:13.5px; font-style:italic; line-height:1.6; margin:0 0 12px 0; opacity:0.9;">"{q.get('text', '')}"</p>
+                        <span style="font-size:12px; font-weight:700; color:{accent}; display:block;">- {q.get('name', '')}</span>
+                    </div>
+                    ''')
+                quotes_container = f'<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px;">{"".join(quotes_html)}</div>'
+                
+            sections_html.append(f'''
+            <section id="testimonials" style="padding: 60px 0; border-bottom: 1px solid {border_color};">
+                <div class="container">
+                    <h2 style="font-size:28px; font-weight:800; margin-bottom:12px; color:{accent}; text-align:center;">{b_title}</h2>
+                    <div style="width:40px; height:2px; background:{accent}; margin:0 auto 36px auto;"></div>
+                    {quotes_container}
+                </div>
+            </section>
+            ''')
+            
+        elif b_type == 'hours':
+            layout = b_content.get('layout', 'split')
+            address = b_content.get('address', '')
+            phone = b_content.get('phone', '')
+            times = b_content.get('times', [])
+            
+            times_rows = []
+            for t in times:
+                times_rows.append(f'''
+                <div style="display:flex; justify-content:space-between; font-size:14px; padding:8px 0; border-bottom: 1px solid {border_color};">
+                    <span style="font-weight:600;">{t.get('day', '')}</span>
+                    <span>{t.get('hours', '')}</span>
+                </div>
+                ''')
+            times_table = f'<div style="background:{card_bg}; border:1px solid {border_color}; border-radius:12px; padding:20px;">{"".join(times_rows)}</div>'
+            
+            contact_info = ''
+            if address:
+                contact_info += f'<p style="font-size:15px; margin: 0 0 12px 0; display:flex; gap:10px; align-items:center;"><span>📍</span> <span>{address}</span></p>'
+            if phone:
+                contact_info += f'<p style="font-size:15px; margin: 0 0 12px 0; display:flex; gap:10px; align-items:center;"><span>📞</span> <a href="tel:{phone}" style="color:{text}; text-decoration:none; font-weight:600;">{phone}</a></p>'
+                
+            if layout == 'center':
+                sections_html.append(f'''
+                <section id="hours" style="padding: 60px 0; border-bottom: 1px solid {border_color};">
+                    <div class="container" style="max-width:700px; text-align:center;">
+                        <h2 style="font-size:28px; font-weight:800; margin-bottom:12px; color:{accent};">{b_title}</h2>
+                        <div style="width:40px; height:2px; background:{accent}; margin: 0 auto 30px auto;"></div>
+                        <div style="margin-bottom:24px; display:inline-block; text-align:center;">
+                            {contact_info}
+                        </div>
+                        {times_table}
+                    </div>
+                </section>
+                ''')
+            else: # split layout
+                sections_html.append(f'''
+                <section id="hours" style="padding: 60px 0; border-bottom: 1px solid {border_color};">
+                    <div class="container" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:40px;">
+                        <div style="flex:1; min-width:280px; text-align:left;">
+                            <h2 style="font-size:28px; font-weight:800; margin-top:0; margin-bottom:16px; color:{accent};">{b_title}</h2>
+                            <div style="width:40px; height:2px; background:{accent}; margin-bottom:24px;"></div>
+                            <div style="display:flex; flex-direction:column; gap:8px;">
+                                {contact_info}
+                            </div>
+                        </div>
+                        <div style="flex:1.2; min-width:280px;">
+                            {times_table}
+                        </div>
+                    </div>
+                </section>
+                ''')
+                
+        elif b_type == 'reservation':
+            if profile.website_enable_reservation:
+                sections_html.append(f'''
+                <section id="reservation" style="padding: 60px 0; text-align:center; background: linear-gradient(to top, {accent}08, transparent); border-bottom: 1px solid {border_color};">
+                    <div class="container" style="max-width:700px;">
+                        <h2 style="font-size:28px; font-weight:800; margin-bottom:12px; color:{accent};">{b_title}</h2>
+                        <div style="width:40px; height:2px; background:{accent}; margin:0 auto 20px auto;"></div>
+                        <p style="font-size:15px; opacity:0.8; line-height:1.6; margin-bottom:24px;">Harika bir yemek deneyimi için masanızı şimdiden ayırtın. Talebiniz anında tarafımıza ulaşacaktır.</p>
+                        <button onclick="document.getElementById('res-modal').style.display='flex'" style="border:none; background:{accent}; color:{'#000000' if is_light else '#ffffff'}; padding:14px 36px; font-size:15px; border-radius:30px; font-weight:750; cursor:pointer; display:inline-flex; gap:8px; align-items:center; box-shadow: 0 4px 14px {accent}40;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            Masa Rezervasyonu Yap
+                        </button>
+                    </div>
+                </section>
+                ''')
+
+    # Socials
+    socials_html = []
+    if profile.website_instagram:
+        socials_html.append(f'<a href="https://instagram.com/{profile.website_instagram}" target="_blank" style="color:{text}; margin-left:16px; opacity:0.8; text-decoration:none; font-size:14px;">📸 Instagram</a>')
+    if profile.website_facebook:
+        socials_html.append(f'<a href="https://facebook.com/{profile.website_facebook}" target="_blank" style="color:{text}; margin-left:16px; opacity:0.8; text-decoration:none; font-size:14px;">👤 Facebook</a>')
+    
+    # Reservation form HTML
+    reservation_form = f'''
+    <div id="res-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(5px);">
+        <div style="background:{card_bg}; color:{text}; border:1px solid {border_color}; border-radius:20px; max-width:480px; width:100%; padding:32px; position:relative; box-shadow:0 15px 40px rgba(0,0,0,0.6); text-align:left;">
+            <button onclick="document.getElementById('res-modal').style.display='none'" style="position:absolute; top:20px; right:20px; background:none; border:none; color:{text}; font-size:28px; cursor:pointer; opacity:0.6;">&times;</button>
+            <h2 style="font-size:24px; font-weight:800; margin-top:0; margin-bottom:20px; color:{accent};">Masa Rezervasyonu</h2>
+            <form id="reservation-form" onsubmit="submitReservation(event)">
+                <div style="margin-bottom:16px;">
+                    <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; opacity:0.75;">Adınız Soyadınız</label>
+                    <input type="text" required style="width:100%; padding:12px; border-radius:10px; border:1px solid {border_color}; background:{bg}; color:{text}; font-size:14.5px; outline:none;" />
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; opacity:0.75;">Telefon Numaranız</label>
+                    <input type="tel" required placeholder="05xx xxx xx xx" style="width:100%; padding:12px; border-radius:10px; border:1px solid {border_color}; background:{bg}; color:{text}; font-size:14.5px; outline:none;" />
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                    <div>
+                        <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; opacity:0.75;">Tarih</label>
+                        <input type="date" required style="width:100%; padding:12px; border-radius:10px; border:1px solid {border_color}; background:{bg}; color:{text}; font-size:14.5px; outline:none;" />
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; opacity:0.75;">Saat</label>
+                        <input type="time" required style="width:100%; padding:12px; border-radius:10px; border:1px solid {border_color}; background:{bg}; color:{text}; font-size:14.5px; outline:none;" />
+                    </div>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; opacity:0.75;">Kişi Sayısı</label>
+                    <select style="width:100%; padding:12px; border-radius:10px; border:1px solid {border_color}; background:{bg}; color:{text}; font-size:14.5px; outline:none;">
+                        <option>1 Kişi</option>
+                        <option selected>2 Kişi</option>
+                        <option>3 Kişi</option>
+                        <option>4 Kişi</option>
+                        <option>5 Kişi</option>
+                        <option>6 Kişi</option>
+                        <option>7+ Kişi</option>
+                    </select>
+                </div>
+                <button type="submit" style="width:100%; border:none; background:{accent}; color:{'#000000' if is_light else '#ffffff'}; padding:14px; font-size:15px; border-radius:10px; font-weight:750; cursor:pointer; box-shadow:0 4px 12px {accent}30;">Rezervasyonu Tamamla</button>
+            </form>
+        </div>
+    </div>
+    '''
+
+    html_content = f'''<!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{seo_title}</title>
+        <meta name="description" content="{seo_desc}">
+        <meta name="keywords" content="{seo_keywords}">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+        <style>
+            * {{ box-sizing: border-box; }}
+            body {{
+                background: {bg};
+                color: {text};
+                font-family: {font};
+                margin: 0;
+                padding: 0;
+                transition: background 0.3s, color 0.3s;
+            }}
+            .container {{
+                max-width: 1100px;
+                margin: 0 auto;
+                padding: 0 24px;
+            }}
+            header {{
+                border-bottom: 1px solid {border_color};
+                padding: 20px 0;
+            }}
+            header .nav-flex {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }}
+            header .logo {{
+                font-weight: 800;
+                font-size: 22px;
+                color: {accent};
+                text-decoration: none;
+            }}
+            nav a {{
+                color: {text};
+                text-decoration: none;
+                margin-left: 24px;
+                font-size: 14px;
+                opacity: 0.8;
+                transition: opacity 0.2s;
+            }}
+            nav a:hover {{
+                opacity: 1;
+                color: {accent};
+            }}
+            footer {{
+                border-top: 1px solid {border_color};
+                padding: 30px 0;
+                margin-top: 40px;
+            }}
+            .footer-flex {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 16px;
+                font-size: 13.5px;
+                opacity: 0.7;
+            }}
+            .btn-primary-custom:hover {{
+                transform: translateY(-2px);
+            }}
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="container nav-flex">
+                <a href="/w/{slug}/" class="logo">{profile.name}</a>
+                <nav>
+                    {nav_links_html}
+                </nav>
+            </div>
+        </header>
+
+        {"".join(sections_html)}
+
+        <footer>
+            <div class="container footer-flex">
+                <span>© {year} {profile.name}. Tüm Hakları Saklıdır.</span>
+                <div>
+                    {"".join(socials_html)}
+                </div>
+            </div>
+        </footer>
+
+        {reservation_form}
+
+        <script>
+            function submitReservation(event) {{
+                event.preventDefault();
+                alert('Rezervasyon talebiniz başarıyla alındı! En kısa sürede telefon ile onay için sizinle iletişime geçeceğiz.');
+                document.getElementById('res-modal').style.display = 'none';
+                document.getElementById('reservation-form').reset();
+            }}
+        </script>
+    </body>
+    </html>
+    '''
+    return HttpResponse(html_content)

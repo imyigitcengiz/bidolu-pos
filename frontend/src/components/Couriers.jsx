@@ -261,13 +261,13 @@ export default function Couriers({ restaurantProfile }) {
               </svg>
 
               {/* Styled Buildings */}
-              <div style={{ position: 'absolute', top: '25px', left: '25px', width: '45px', height: '45px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px' }}></div>
-              <div style={{ position: 'absolute', top: '25px', left: '120px', width: '90px', height: '45px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px' }}></div>
-              <div style={{ position: 'absolute', top: '25px', left: '280px', width: '90px', height: '45px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px' }}></div>
-              <div style={{ position: 'absolute', top: '115px', left: '120px', width: '90px', height: '35px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px' }}></div>
-              <div style={{ position: 'absolute', top: '115px', left: '280px', width: '90px', height: '35px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px' }}></div>
-              <div style={{ position: 'absolute', top: '205px', left: '120px', width: '90px', height: '35px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px' }}></div>
-              <div style={{ position: 'absolute', top: '205px', left: '280px', width: '90px', height: '35px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px' }}></div>
+              <div style={{ position: 'absolute', top: '25px', left: '25px', width: '45px', height: '45px', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '6px' }}></div>
+              <div style={{ position: 'absolute', top: '25px', left: '120px', width: '90px', height: '45px', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '6px' }}></div>
+              <div style={{ position: 'absolute', top: '25px', left: '280px', width: '90px', height: '45px', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '6px' }}></div>
+              <div style={{ position: 'absolute', top: '115px', left: '120px', width: '90px', height: '35px', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '6px' }}></div>
+              <div style={{ position: 'absolute', top: '115px', left: '280px', width: '90px', height: '35px', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '6px' }}></div>
+              <div style={{ position: 'absolute', top: '205px', left: '120px', width: '90px', height: '35px', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '6px' }}></div>
+              <div style={{ position: 'absolute', top: '205px', left: '280px', width: '90px', height: '35px', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '6px' }}></div>
 
               {/* Restaurant Center Point */}
               <div style={{ 
@@ -461,7 +461,7 @@ export default function Couriers({ restaurantProfile }) {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
               {couriers.map(c => (
-                <div key={c.id} style={{ padding: '16px', border: '1px solid var(--panel-border)', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div key={c.id} style={{ padding: '16px', border: '1px solid var(--panel-border)', borderRadius: '12px', background: 'rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: '600', fontSize: '16px' }}>{c.name}</span>
                     <span 
