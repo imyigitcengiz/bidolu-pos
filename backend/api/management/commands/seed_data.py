@@ -137,7 +137,13 @@ class Command(BaseCommand):
             website_banner_text='En Lezzetli Kebaplar ve Lahmacunlar Bidolu\'da!',
             website_enable_table_orders=True,
             website_enable_delivery=True,
-            website_enable_takeaway=True
+            website_enable_takeaway=True,
+            website_custom_domain='www.bidolukebap.com',
+            website_about_text='1990 yılından beri İzmir Alsancak\'ta geleneksel odun ateşinde kebap ve taş fırında lahmacun lezzetini sunuyoruz. Tamamen taze malzemelerle hazırlanan eşsiz menümüzü keşfedin.',
+            website_instagram='bidolu.kebap',
+            website_facebook='bidolu.kebap',
+            website_template='Modern Dark',
+            website_enable_reservation=True
         )
 
         # 7. Seed Ingredients & Recipes

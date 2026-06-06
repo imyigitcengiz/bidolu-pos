@@ -15,9 +15,10 @@ import Couriers from './components/Couriers';
 import Reports from './components/Reports';
 import SettingsComponent from './components/Settings';
 import WebsiteBuilder from './components/WebsiteBuilder';
+import OfficialWebsite from './components/OfficialWebsite';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
-  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe 
+  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode 
 } from 'lucide-react';
 
 function App() {
@@ -107,8 +108,10 @@ function App() {
         return <Reports />;
       case 'settings':
         return <SettingsComponent />;
-      case 'website':
+      case 'qr-menu':
         return <WebsiteBuilder />;
+      case 'official-website':
+        return <OfficialWebsite />;
       default:
         return <Dashboard />;
     }
@@ -142,8 +145,10 @@ function App() {
         return 'Raporlar';
       case 'settings':
         return 'Genel Ayarlar';
-      case 'website':
-        return 'Restoran Web Sitesi';
+      case 'qr-menu':
+        return 'QR Menü (Sipariş)';
+      case 'official-website':
+        return 'Tanıtım Web Sitesi';
       default:
         return 'Bidolu POS';
     }
@@ -177,8 +182,10 @@ function App() {
         return 'Detaylı ciro dağılımları ve kâr-zarar analiz raporları';
       case 'settings':
         return 'Profil, restoran kimliği ve üyelik planı ayarları';
-      case 'website':
-        return 'QR menü, web sipariş teması ve karekod ayarları';
+      case 'qr-menu':
+        return 'Masadan QR sipariş, temalar ve karekod yönetimi';
+      case 'official-website':
+        return 'Müşterileriniz için kurumsal tanıtım web sitesi';
       default:
         return 'Restoran Yönetim Sistemi';
     }
@@ -297,12 +304,20 @@ function App() {
               <span>Raporlar</span>
             </li>
             <li 
-              className={`nav-item ${currentTab === 'website' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('website'); setSelectedTable(null); }}
+              className={`nav-item ${currentTab === 'qr-menu' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('qr-menu'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <QrCode size={18} />
+              <span>QR Menü (Sipariş)</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'official-website' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('official-website'); setSelectedTable(null); }}
               style={{ padding: '10px 12px', fontSize: '13px' }}
             >
               <Globe size={18} />
-              <span>Web Sitesi (QR)</span>
+              <span>Tanıtım Web Sitesi</span>
             </li>
             <li 
               className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}

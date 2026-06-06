@@ -174,6 +174,12 @@ class RestaurantProfile(models.Model):
     website_enable_table_orders = models.BooleanField(default=True)
     website_enable_delivery = models.BooleanField(default=True)
     website_enable_takeaway = models.BooleanField(default=True)
+    website_custom_domain = models.CharField(max_length=255, blank=True, null=True)
+    website_about_text = models.TextField(blank=True, null=True)
+    website_instagram = models.CharField(max_length=100, blank=True, null=True)
+    website_facebook = models.CharField(max_length=100, blank=True, null=True)
+    website_template = models.CharField(max_length=50, default='Modern Dark')
+    website_enable_reservation = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
