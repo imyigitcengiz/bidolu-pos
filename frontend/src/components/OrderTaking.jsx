@@ -211,6 +211,13 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
           <div className="menu-items-grid">
             {filteredMenuItems.map(item => (
               <div className="menu-item-card" key={item.id} onClick={() => addToCart(item)}>
+                {item.image && (
+                  <img 
+                    src={item.image.startsWith('http') ? item.image : `http://localhost:8000${item.image}`} 
+                    alt={item.name} 
+                    style={{ width: '100%', height: '120px', borderRadius: '10px', objectFit: 'cover', marginBottom: '4px' }} 
+                  />
+                )}
                 <div>
                   <div className="menu-item-name">{item.name}</div>
                   <div className="menu-item-desc">{item.description}</div>
