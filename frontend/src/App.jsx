@@ -16,9 +16,10 @@ import Reports from './components/Reports';
 import SettingsComponent from './components/Settings';
 import WebsiteBuilder from './components/WebsiteBuilder';
 import OfficialWebsite from './components/OfficialWebsite';
+import Extensions from './components/Extensions';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
-  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode 
+  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode, Puzzle
 } from 'lucide-react';
 
 function App() {
@@ -112,6 +113,8 @@ function App() {
         return <WebsiteBuilder />;
       case 'official-website':
         return <OfficialWebsite />;
+      case 'extensions':
+        return <Extensions setCurrentTab={setCurrentTab} />;
       default:
         return <Dashboard />;
     }
@@ -149,6 +152,8 @@ function App() {
         return 'QR Menü (Sipariş)';
       case 'official-website':
         return 'Tanıtım Web Sitesi';
+      case 'extensions':
+        return 'Eklentiler & Pazaryeri';
       default:
         return 'Bidolu POS';
     }
@@ -186,6 +191,8 @@ function App() {
         return 'Masadan QR sipariş, temalar ve karekod yönetimi';
       case 'official-website':
         return 'Müşterileriniz için kurumsal tanıtım web sitesi';
+      case 'extensions':
+        return 'Müşteri CRM rehberi, WhatsApp API otomasyonları ve kampanyalar';
       default:
         return 'Restoran Yönetim Sistemi';
     }
@@ -318,6 +325,14 @@ function App() {
             >
               <Globe size={18} />
               <span>Tanıtım Web Sitesi</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'extensions' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('extensions'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <Puzzle size={18} />
+              <span>Eklentiler</span>
             </li>
             <li 
               className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}

@@ -102,6 +102,7 @@ class Ingredient(models.Model):
     name = models.CharField(max_length=100, unique=True)
     stock_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     unit = models.CharField(max_length=20, default='pcs')
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     def __str__(self):
         return self.name
@@ -183,5 +184,65 @@ class RestaurantProfile(models.Model):
 
     def __str__(self):
         return self.name
+
+class CashTransaction(models.Model):
+    register = models.ForeignKey(CashRegister, related_name='transactions', on_delete=models.CASCADE)
+    transaction_type = models.CharField(max_length=10, choices=[('in', 'Giriş'), ('out', 'Çıkış')])
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    description = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new:
+            reg = self.register
+            if self.transaction_type == 'in':
+                reg.balance += self.amount
+            else:
+                reg.balance -= self.amount
+            reg.save()
+
+    def __str__(self):
+        return f"{self.transaction_type.upper()} - {self.amount} TL - {self.description}"
+
+class StockAudit(models.Model):
+    date = models.DateTimeField(auto_now_add=True)
+    notes = models.CharField(max_length=255, blank=True, null=True)
+    total_variance_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
+    def __str__(self):
+        return f"Sayım - {self.date.strftime('%d.%m.%Y %H:%M')} - Fark: {self.total_variance_amount} TL"
+
+class StockAuditItem(models.Model):
+    audit = models.ForeignKey(StockAudit, related_name='items', on_delete=models.CASCADE)
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
+    system_stock = models.DecimalField(max_digits=10, decimal_places=2)
+    actual_stock = models.DecimalField(max_digits=10, decimal_places=2)
+    variance = models.DecimalField(max_digits=10, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    cost_difference = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.ingredient.name} sayım farkı: {self.variance} {self.ingredient.unit}"
+
+class Customer(models.Model):
+    name = models.CharField(max_length=150)
+    phone = models.CharField(max_length=20, unique=True)
+    email = models.EmailField(blank=True, null=True)
+    total_orders = models.IntegerField(default=0)
+    last_order_date = models.DateField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.phone})"
+
+class WhatsAppConfig(models.Model):
+    api_key = models.CharField(max_length=255, blank=True, null=True)
+    phone_number_id = models.CharField(max_length=100, blank=True, null=True)
+    is_auto_message_enabled = models.BooleanField(default=False)
+    message_template = models.TextField(default="Merhaba {customer_name}, {order_id} nolu siparişiniz alınmıştır. Afiyet olsun!")
+
+    def __str__(self):
+        return f"WhatsApp Config - Enabled: {self.is_auto_message_enabled}"
 
 

@@ -6,6 +6,7 @@ from .views import (
     OrderChannelViewSet, CashRegisterViewSet, IngredientViewSet,
     RecipeViewSet, RecipeIngredientViewSet, StaffMemberViewSet,
     ExpenseViewSet, CourierViewSet, CourierLogViewSet, RestaurantProfileViewSet,
+    CashTransactionViewSet, StockAuditViewSet, CustomerViewSet, WhatsAppConfigViewSet,
 )
 
 router = DefaultRouter()
@@ -23,6 +24,10 @@ router.register(r'expenses', ExpenseViewSet, basename='expense')
 router.register(r'couriers', CourierViewSet, basename='courier')
 router.register(r'courier-logs', CourierLogViewSet, basename='courierlog')
 router.register(r'restaurant-profile', RestaurantProfileViewSet, basename='restaurantprofile')
+router.register(r'cash-transactions', CashTransactionViewSet, basename='cashtransaction')
+router.register(r'stock-audits', StockAuditViewSet, basename='stockaudit')
+router.register(r'customers', CustomerViewSet, basename='customer')
+router.register(r'whatsapp-configs', WhatsAppConfigViewSet, basename='whatsappconfig')
 
 
 urlpatterns = [

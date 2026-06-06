@@ -3,6 +3,7 @@ from .models import (
     Table, Category, MenuItem, Order, OrderItem, Payment,
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
     StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
+    CashTransaction, StockAudit, StockAuditItem, Customer, WhatsAppConfig,
 )
 
 class TableSerializer(serializers.ModelSerializer):
@@ -93,5 +94,37 @@ class CourierLogSerializer(serializers.ModelSerializer):
 class RestaurantProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = RestaurantProfile
+        fields = '__all__'
+
+class CashTransactionSerializer(serializers.ModelSerializer):
+    register_name = serializers.ReadOnlyField(source='register.name')
+
+    class Meta:
+        model = CashTransaction
+        fields = '__all__'
+
+class StockAuditItemSerializer(serializers.ModelSerializer):
+    ingredient_name = serializers.ReadOnlyField(source='ingredient.name')
+    ingredient_unit = serializers.ReadOnlyField(source='ingredient.unit')
+
+    class Meta:
+        model = StockAuditItem
+        fields = '__all__'
+
+class StockAuditSerializer(serializers.ModelSerializer):
+    items = StockAuditItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = StockAudit
+        fields = '__all__'
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = '__all__'
+
+class WhatsAppConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WhatsAppConfig
         fields = '__all__'
 

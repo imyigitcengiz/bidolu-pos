@@ -4,10 +4,12 @@ from rest_framework.decorators import action
 from django.db.models import Sum, Count, F
 from django.utils import timezone
 from datetime import timedelta
+from django.db import transaction
 from .models import (
     Table, Category, MenuItem, Order, OrderItem, Payment,
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
     StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
+    CashTransaction, StockAudit, StockAuditItem, Customer, WhatsAppConfig,
 )
 from .serializers import (
     TableSerializer, CategorySerializer, MenuItemSerializer,
@@ -15,7 +17,8 @@ from .serializers import (
     OrderChannelSerializer, CashRegisterSerializer, IngredientSerializer,
     RecipeSerializer, RecipeIngredientSerializer, StaffMemberSerializer,
     ExpenseSerializer, CourierSerializer, CourierLogSerializer,
-    RestaurantProfileSerializer,
+    RestaurantProfileSerializer, CashTransactionSerializer, StockAuditSerializer,
+    CustomerSerializer, WhatsAppConfigSerializer,
 )
 
 class TableViewSet(viewsets.ModelViewSet):
@@ -118,21 +121,41 @@ class OrderViewSet(viewsets.ModelViewSet):
         if not payment_method or not amount:
             return Response({'error': 'Ödeme yöntemi ve tutar gereklidir'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Record payment
-        Payment.objects.create(
-            order=order,
-            amount=amount,
-            payment_method=payment_method
-        )
-        
-        # Update order status to completed
-        order.status = 'completed'
-        order.save()
-        
-        # Empty the table
-        table = order.table
-        table.status = 'empty'
-        table.save()
+        try:
+            amount_decimal = float(amount)
+        except ValueError:
+            return Response({'error': 'Geçersiz tutar'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Atomically record payment, register transaction, update order/table
+        with transaction.atomic():
+            # Record payment
+            Payment.objects.create(
+                order=order,
+                amount=amount_decimal,
+                payment_method=payment_method
+            )
+            
+            # Update order status to completed
+            order.status = 'completed'
+            order.save()
+            
+            # Empty the table
+            table = order.table
+            table.status = 'empty'
+            table.save()
+
+            # Record in Cash Register
+            register = CashRegister.objects.first()
+            if not register:
+                register = CashRegister.objects.create(name='Ana Kasa', balance=0.00, location='Merkez')
+            
+            # Log CashTransaction (which will automatically increment the register balance!)
+            CashTransaction.objects.create(
+                register=register,
+                transaction_type='in',
+                amount=amount_decimal,
+                description=f"Masa Ödemesi ({table.name}) - Sipariş #{order.id} ({payment_method == 'cash' and 'Nakit' or 'Kredi Kartı'})"
+            )
         
         return Response({'message': 'Ödeme alındı ve masa kapatıldı', 'order': OrderSerializer(order).data})
 
@@ -247,6 +270,89 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     queryset = Expense.objects.all().order_by('-date')
     serializer_class = ExpenseSerializer
 
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            expense = serializer.save()
+            
+            # Find default cash register
+            register = CashRegister.objects.first()
+            if not register:
+                register = CashRegister.objects.create(name='Ana Kasa', balance=0.00, location='Merkez')
+            
+            # Log CashTransaction (which will automatically deduct the register balance!)
+            CashTransaction.objects.create(
+                register=register,
+                transaction_type='out',
+                amount=expense.amount,
+                description=f"Gider: {expense.title} ({expense.category or 'Genel'})"
+            )
+
+class CashTransactionViewSet(viewsets.ModelViewSet):
+    queryset = CashTransaction.objects.all().order_by('-id')
+    serializer_class = CashTransactionSerializer
+
+    def get_queryset(self):
+        queryset = CashTransaction.objects.all().order_by('-id')
+        register_id = self.request.query_params.get('register', None)
+        if register_id is not None:
+            queryset = queryset.filter(register_id=register_id)
+        return queryset
+
+class StockAuditViewSet(viewsets.ModelViewSet):
+    queryset = StockAudit.objects.all().order_by('-date')
+    serializer_class = StockAuditSerializer
+
+    def create(self, request, *args, **kwargs):
+        items_data = request.data.get('items', [])
+        notes = request.data.get('notes', '')
+
+        if not items_data:
+            return Response({'error': 'Sayım yapılacak malzeme bulunamadı'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                audit = StockAudit.objects.create(notes=notes, total_variance_amount=0)
+                total_variance = 0
+
+                for item in items_data:
+                    ing_id = item.get('ingredient')
+                    actual_stock = float(item.get('actual_stock', 0))
+
+                    try:
+                        ingredient = Ingredient.objects.get(id=ing_id)
+                    except Ingredient.DoesNotExist:
+                        continue
+
+                    system_stock = float(ingredient.stock_quantity)
+                    variance = actual_stock - system_stock
+                    unit_price = float(ingredient.unit_price)
+                    cost_difference = variance * unit_price
+
+                    # Save Audit Item
+                    StockAuditItem.objects.create(
+                        audit=audit,
+                        ingredient=ingredient,
+                        system_stock=system_stock,
+                        actual_stock=actual_stock,
+                        variance=variance,
+                        unit_price=unit_price,
+                        cost_difference=cost_difference
+                    )
+
+                    # Update ingredient stock quantity in database
+                    ingredient.stock_quantity = actual_stock
+                    ingredient.save()
+
+                    total_variance += cost_difference
+
+                # Save the total variance on audit
+                audit.total_variance_amount = total_variance
+                audit.save()
+
+            return Response(StockAuditSerializer(audit).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 class CourierViewSet(viewsets.ModelViewSet):
     queryset = Courier.objects.all().order_by('name')
     serializer_class = CourierSerializer
@@ -258,4 +364,36 @@ class CourierLogViewSet(viewsets.ModelViewSet):
 class RestaurantProfileViewSet(viewsets.ModelViewSet):
     queryset = RestaurantProfile.objects.all()
     serializer_class = RestaurantProfileSerializer
+
+class CustomerViewSet(viewsets.ModelViewSet):
+    queryset = Customer.objects.all().order_by('-id')
+    serializer_class = CustomerSerializer
+
+class WhatsAppConfigViewSet(viewsets.ModelViewSet):
+    queryset = WhatsAppConfig.objects.all().order_by('-id')
+    serializer_class = WhatsAppConfigSerializer
+
+    @action(detail=False, methods=['post'])
+    def send_campaign(self, request):
+        message = request.data.get('message', '')
+        recipients = request.data.get('recipients', [])
+        
+        if not message or not recipients:
+            return Response({'error': 'Mesaj ve alıcı listesi gereklidir'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        logs = []
+        for index, r in enumerate(recipients):
+            logs.append({
+                'id': index + 1,
+                'customer': r.get('name'),
+                'phone': r.get('phone'),
+                'status': 'Gönderildi',
+                'message_preview': message.replace('{customer_name}', r.get('name', 'Müşteri'))
+            })
+        
+        return Response({
+            'status': 'success',
+            'message': f'{len(recipients)} müşteriye kampanya gönderimi simüle edildi.',
+            'logs': logs
+        })
 

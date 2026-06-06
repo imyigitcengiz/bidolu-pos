@@ -19,16 +19,17 @@ export default function CashRegister() {
   const [newRegBal, setNewRegBal] = useState('');
   const [newRegLoc, setNewRegLoc] = useState('');
 
-  // Local/Session Mock transaction list for high-fidelity feel
-  const [transactions, setTransactions] = useState([
-    { id: 1, type: 'in', amount: 350.00, desc: 'Masa 3 Hesap Kapatma', time: '10:45' },
-    { id: 2, type: 'out', amount: 120.00, desc: 'Kurye Paraüstü Avans', time: '11:15' },
-    { id: 3, type: 'in', amount: 480.00, desc: 'Yemeksepeti Ödeme', time: '12:00' },
-  ]);
+  const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
     fetchRegisters();
   }, []);
+
+  useEffect(() => {
+    if (selectedRegister) {
+      fetchTransactions(selectedRegister.id);
+    }
+  }, [selectedRegister]);
 
   const fetchRegisters = async () => {
     try {
@@ -37,7 +38,12 @@ export default function CashRegister() {
       const data = await res.json();
       setRegisters(data);
       if (data.length > 0) {
-        setSelectedRegister(data[0]);
+        if (selectedRegister) {
+          const updated = data.find(r => r.id === selectedRegister.id);
+          setSelectedRegister(updated || data[0]);
+        } else {
+          setSelectedRegister(data[0]);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -46,46 +52,43 @@ export default function CashRegister() {
     }
   };
 
+  const fetchTransactions = async (registerId) => {
+    if (!registerId) return;
+    try {
+      const res = await fetch(`${API_BASE}/cash-transactions/?register=${registerId}`);
+      const data = await res.json();
+      setTransactions(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleTransaction = async (e) => {
     e.preventDefault();
     if (!transAmount || !selectedRegister) return;
 
     const amount = parseFloat(transAmount);
-    let newBalance = parseFloat(selectedRegister.balance);
-
-    if (transType === 'in') {
-      newBalance += amount;
-    } else {
-      newBalance -= amount;
-    }
 
     try {
-      const res = await fetch(`${API_BASE}/cash-registers/${selectedRegister.id}/`, {
-        method: 'PATCH',
+      const res = await fetch(`${API_BASE}/cash-transactions/`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ balance: newBalance })
+        body: JSON.stringify({
+          register: selectedRegister.id,
+          transaction_type: transType,
+          amount,
+          description: transDesc || (transType === 'in' ? 'Para Girişi' : 'Para Çıkışı')
+        })
       });
 
       if (res.ok) {
-        const updatedReg = await res.json();
-        // Update local state
-        setRegisters(registers.map(r => r.id === updatedReg.id ? updatedReg : r));
-        setSelectedRegister(updatedReg);
-        
-        // Add to local mock transaction history
-        const newTrans = {
-          id: transactions.length + 1,
-          type: transType,
-          amount,
-          desc: transDesc || (transType === 'in' ? 'Para Girişi' : 'Para Çıkışı'),
-          time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
-        };
-        setTransactions([newTrans, ...transactions]);
-
-        // Reset fields
+        await fetchRegisters();
+        await fetchTransactions(selectedRegister.id);
         setTransAmount('');
         setTransDesc('');
         alert('İşlem başarıyla gerçekleştirildi.');
+      } else {
+        alert('İşlem kaydedilemedi.');
       }
     } catch (err) {
       console.error(err);
@@ -235,7 +238,7 @@ export default function CashRegister() {
                     {transactions.map(t => (
                       <tr key={t.id}>
                         <td>
-                          {t.type === 'in' ? (
+                          {t.transaction_type === 'in' ? (
                             <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700' }}>
                               <ArrowDownLeft size={14} /> GİRİŞ
                             </span>
@@ -245,10 +248,12 @@ export default function CashRegister() {
                             </span>
                           )}
                         </td>
-                        <td style={{ fontWeight: '500' }}>{t.desc}</td>
-                        <td style={{ color: 'var(--text-muted)' }}>{t.time}</td>
-                        <td style={{ fontWeight: '700', color: t.type === 'in' ? 'var(--success)' : 'var(--danger)' }}>
-                          {t.type === 'in' ? '+' : '-'}{t.amount.toLocaleString('tr-TR')} ₺
+                        <td style={{ fontWeight: '500' }}>{t.description}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>
+                          {new Date(t.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td style={{ fontWeight: '700', color: t.transaction_type === 'in' ? 'var(--success)' : 'var(--danger)' }}>
+                          {t.transaction_type === 'in' ? '+' : '-'}{parseFloat(t.amount).toLocaleString('tr-TR')} ₺
                         </td>
                       </tr>
                     ))}

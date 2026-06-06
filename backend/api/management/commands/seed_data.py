@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 from api.models import (
     Table, Category, MenuItem, Order, OrderItem, Payment,
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
-    StaffMember, Expense, Courier, CourierLog, RestaurantProfile
+    StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
+    Customer, WhatsAppConfig
 )
 import random
 from datetime import timedelta
@@ -19,6 +20,8 @@ class Command(BaseCommand):
         CourierLog.objects.all().delete()
         Courier.objects.all().delete()
         Expense.objects.all().delete()
+        Customer.objects.all().delete()
+        WhatsAppConfig.objects.all().delete()
         StaffMember.objects.all().delete()
         RecipeIngredient.objects.all().delete()
         Recipe.objects.all().delete()
@@ -144,6 +147,19 @@ class Command(BaseCommand):
             website_facebook='bidolu.kebap',
             website_template='Modern Dark',
             website_enable_reservation=True
+        )
+
+        # 6.6 Seed Customers
+        Customer.objects.create(name="Ahmet Yılmaz", phone="0532 111 22 33", email="ahmet@gmail.com", total_orders=12, last_order_date="2026-06-01")
+        Customer.objects.create(name="Mehmet Kaya", phone="0542 222 33 44", email="mehmet@gmail.com", total_orders=8, last_order_date="2026-06-03")
+        Customer.objects.create(name="Ayşe Demir", phone="0505 333 44 55", email="ayse@gmail.com", total_orders=15, last_order_date="2026-06-05")
+
+        # 6.7 Seed WhatsApp Config
+        WhatsAppConfig.objects.create(
+            api_key="wh_live_key_9921",
+            phone_number_id="10984852",
+            is_auto_message_enabled=True,
+            message_template="Merhaba {customer_name}, {order_id} nolu siparişiniz başarıyla alınmıştır. Afiyet olsun!"
         )
 
         # 7. Seed Ingredients & Recipes
