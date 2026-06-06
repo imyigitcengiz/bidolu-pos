@@ -5,7 +5,7 @@ from .views import (
     OrderViewSet, OrderItemViewSet, DashboardStatsView,
     OrderChannelViewSet, CashRegisterViewSet, IngredientViewSet,
     RecipeViewSet, RecipeIngredientViewSet, StaffMemberViewSet,
-    ExpenseViewSet, CourierViewSet, CourierLogViewSet,
+    ExpenseViewSet, CourierViewSet, CourierLogViewSet, RestaurantProfileViewSet,
 )
 
 router = DefaultRouter()
@@ -22,6 +22,7 @@ router.register(r'staff-members', StaffMemberViewSet, basename='staffmember')
 router.register(r'expenses', ExpenseViewSet, basename='expense')
 router.register(r'couriers', CourierViewSet, basename='courier')
 router.register(r'courier-logs', CourierLogViewSet, basename='courierlog')
+router.register(r'restaurant-profile', RestaurantProfileViewSet, basename='restaurantprofile')
 
 
 urlpatterns = [

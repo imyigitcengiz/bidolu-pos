@@ -7,7 +7,7 @@ from datetime import timedelta
 from .models import (
     Table, Category, MenuItem, Order, OrderItem, Payment,
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
-    StaffMember, Expense, Courier, CourierLog,
+    StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
 )
 from .serializers import (
     TableSerializer, CategorySerializer, MenuItemSerializer,
@@ -15,6 +15,7 @@ from .serializers import (
     OrderChannelSerializer, CashRegisterSerializer, IngredientSerializer,
     RecipeSerializer, RecipeIngredientSerializer, StaffMemberSerializer,
     ExpenseSerializer, CourierSerializer, CourierLogSerializer,
+    RestaurantProfileSerializer,
 )
 
 class TableViewSet(viewsets.ModelViewSet):
@@ -253,3 +254,8 @@ class CourierViewSet(viewsets.ModelViewSet):
 class CourierLogViewSet(viewsets.ModelViewSet):
     queryset = CourierLog.objects.all().order_by('-timestamp')
     serializer_class = CourierLogSerializer
+
+class RestaurantProfileViewSet(viewsets.ModelViewSet):
+    queryset = RestaurantProfile.objects.all()
+    serializer_class = RestaurantProfileSerializer
+

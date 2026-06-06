@@ -159,3 +159,17 @@ class CourierLog(models.Model):
     def __str__(self):
         return f"{self.courier.name} - Order #{self.order.id} ({self.status})"
 
+class RestaurantProfile(models.Model):
+    name = models.CharField(max_length=150, default='Bidolu Restoran')
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    tax_office = models.CharField(max_length=100, blank=True, null=True)
+    tax_number = models.CharField(max_length=50, blank=True, null=True)
+    working_hours = models.CharField(max_length=100, default='09:00 - 23:00')
+    active_plan = models.CharField(max_length=50, default='Growth') # 'Starter', 'Growth', 'Enterprise'
+    plan_expiry = models.DateField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     Table, Category, MenuItem, Order, OrderItem, Payment,
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
-    StaffMember, Expense, Courier, CourierLog,
+    StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
 )
 
 class TableSerializer(serializers.ModelSerializer):
@@ -89,3 +89,9 @@ class CourierLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourierLog
         fields = '__all__'
+
+class RestaurantProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RestaurantProfile
+        fields = '__all__'
+

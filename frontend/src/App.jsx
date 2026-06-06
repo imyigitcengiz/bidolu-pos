@@ -13,9 +13,10 @@ import Personnel from './components/Personnel';
 import Expenses from './components/Expenses';
 import Couriers from './components/Couriers';
 import Reports from './components/Reports';
+import SettingsComponent from './components/Settings';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
-  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart 
+  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen 
 } from 'lucide-react';
 
 function App() {
@@ -68,6 +69,8 @@ function App() {
         return <Couriers />;
       case 'reports':
         return <Reports />;
+      case 'settings':
+        return <SettingsComponent />;
       default:
         return <Dashboard />;
     }
@@ -99,6 +102,8 @@ function App() {
         return 'Kurye & Paraüstü Takibi';
       case 'reports':
         return 'Raporlar';
+      case 'settings':
+        return 'Genel Ayarlar';
       default:
         return 'Bidolu POS';
     }
@@ -130,6 +135,8 @@ function App() {
         return 'Lokal kurye durumları, teslimat günlükleri ve paraüstü avansları';
       case 'reports':
         return 'Detaylı ciro dağılımları ve kâr-zarar analiz raporları';
+      case 'settings':
+        return 'Profil, restoran kimliği ve üyelik planı ayarları';
       default:
         return 'Restoran Yönetim Sistemi';
     }
@@ -196,7 +203,7 @@ function App() {
               onClick={() => { setCurrentTab('menu'); setSelectedTable(null); }}
               style={{ padding: '10px 12px', fontSize: '13px' }}
             >
-              <Settings size={18} />
+              <BookOpen size={18} />
               <span>Menü Yönetimi</span>
             </li>
             <li 
@@ -246,6 +253,14 @@ function App() {
             >
               <PieChart size={18} />
               <span>Raporlar</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('settings'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <Settings size={18} />
+              <span>Ayarlar</span>
             </li>
           </ul>
         </nav>

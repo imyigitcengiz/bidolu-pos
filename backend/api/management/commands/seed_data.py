@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from api.models import (
     Table, Category, MenuItem, Order, OrderItem, Payment,
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
-    StaffMember, Expense, Courier, CourierLog
+    StaffMember, Expense, Courier, CourierLog, RestaurantProfile
 )
 import random
 from datetime import timedelta
@@ -23,6 +23,7 @@ class Command(BaseCommand):
         RecipeIngredient.objects.all().delete()
         Recipe.objects.all().delete()
         Ingredient.objects.all().delete()
+        RestaurantProfile.objects.all().delete()
         CashRegister.objects.all().delete()
         OrderChannel.objects.all().delete()
         Payment.objects.all().delete()
@@ -120,6 +121,18 @@ class Command(BaseCommand):
 
         # 6. Seed Cash Register
         cash_register = CashRegister.objects.create(name='Ana Kasa', balance=8500.00, location='Giriş Danışma')
+
+        # 6.5 Seed Restaurant Profile
+        RestaurantProfile.objects.create(
+            name='Bidolu Kebap & Lahmacun',
+            phone='0232 444 55 66',
+            address='Alsancak Mah. Kıbrıs Şehitleri Cad. No:35 Konak / İzmir',
+            tax_office='Kordon Vergi Dairesi',
+            tax_number='3535061909',
+            working_hours='10:00 - 23:00',
+            active_plan='Growth',
+            plan_expiry=timezone.now().date() + timedelta(days=365)
+        )
 
         # 7. Seed Ingredients & Recipes
         ingredients_data = [
