@@ -146,7 +146,11 @@ class Command(BaseCommand):
             website_instagram='bidolu.kebap',
             website_facebook='bidolu.kebap',
             website_template='Modern Dark',
-            website_enable_reservation=True
+            website_enable_reservation=True,
+            ext_qr_menu_enabled=True,
+            ext_official_website_enabled=True,
+            ext_crm_enabled=True,
+            ext_whatsapp_enabled=False
         )
 
         # 6.6 Seed Customers

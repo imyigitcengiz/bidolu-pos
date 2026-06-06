@@ -181,6 +181,10 @@ class RestaurantProfile(models.Model):
     website_facebook = models.CharField(max_length=100, blank=True, null=True)
     website_template = models.CharField(max_length=50, default='Modern Dark')
     website_enable_reservation = models.BooleanField(default=True)
+    ext_qr_menu_enabled = models.BooleanField(default=True)
+    ext_official_website_enabled = models.BooleanField(default=True)
+    ext_crm_enabled = models.BooleanField(default=True)
+    ext_whatsapp_enabled = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

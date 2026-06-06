@@ -3,8 +3,22 @@ import { Layers, QrCode, Globe, Users, MessageSquare, Plus, Trash2, Send, Save, 
 
 const API_BASE = 'http://localhost:8000/api';
 
-export default function Extensions({ setCurrentTab }) {
-  const [activeSubView, setActiveSubView] = useState(null); // null, 'crm', 'whatsapp'
+export default function Extensions({ setCurrentTab, activeSubView, setActiveSubView, restaurantProfile, fetchRestaurantProfile }) {
+  const handleToggleExtension = async (field, value) => {
+    if (!restaurantProfile || !restaurantProfile.id) return;
+    try {
+      const res = await fetch(`${API_BASE}/restaurant-profile/${restaurantProfile.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value })
+      });
+      if (res.ok) {
+        fetchRestaurantProfile();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // CRM State
   const [customers, setCustomers] = useState([]);
@@ -192,49 +206,129 @@ export default function Extensions({ setCurrentTab }) {
             {/* QR Menu Card */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
               <div>
-                <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                  <QrCode size={22} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <QrCode size={22} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', color: restaurantProfile.ext_qr_menu_enabled ? 'var(--success)' : 'var(--text-muted)' }}>
+                      {restaurantProfile.ext_qr_menu_enabled ? 'Açık' : 'Kapalı'}
+                    </span>
+                    <input 
+                      type="checkbox"
+                      checked={restaurantProfile.ext_qr_menu_enabled}
+                      onChange={(e) => handleToggleExtension('ext_qr_menu_enabled', e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                  </div>
                 </div>
                 <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>QR Menü</h4>
                 <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Masalardan veya adresten QR kod okutarak sipariş alın, menü temalarını yönetin.</p>
               </div>
-              <button onClick={() => setCurrentTab('qr-menu')} className="btn btn-secondary" style={{ width: '100%', padding: '8px' }}>Yönetime Git</button>
+              <button 
+                onClick={() => setCurrentTab('qr-menu')} 
+                disabled={!restaurantProfile.ext_qr_menu_enabled}
+                className="btn btn-secondary" 
+                style={{ width: '100%', padding: '8px', opacity: restaurantProfile.ext_qr_menu_enabled ? 1 : 0.5 }}
+              >
+                {restaurantProfile.ext_qr_menu_enabled ? 'Yönetime Git' : 'Aktif Etmek İçin Açın'}
+              </button>
             </div>
 
             {/* Official Website Card */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
               <div>
-                <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                  <Globe size={22} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Globe size={22} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', color: restaurantProfile.ext_official_website_enabled ? 'var(--success)' : 'var(--text-muted)' }}>
+                      {restaurantProfile.ext_official_website_enabled ? 'Açık' : 'Kapalı'}
+                    </span>
+                    <input 
+                      type="checkbox"
+                      checked={restaurantProfile.ext_official_website_enabled}
+                      onChange={(e) => handleToggleExtension('ext_official_website_enabled', e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                  </div>
                 </div>
                 <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Tanıtım Web Sitesi</h4>
                 <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Kendi özel alan adınız, tasarımlarınız, rezervasyon formu ve hikayenizle web sitenizi oluşturun.</p>
               </div>
-              <button onClick={() => setCurrentTab('official-website')} className="btn btn-secondary" style={{ width: '100%', padding: '8px' }}>Yönetime Git</button>
+              <button 
+                onClick={() => setCurrentTab('official-website')} 
+                disabled={!restaurantProfile.ext_official_website_enabled}
+                className="btn btn-secondary" 
+                style={{ width: '100%', padding: '8px', opacity: restaurantProfile.ext_official_website_enabled ? 1 : 0.5 }}
+              >
+                {restaurantProfile.ext_official_website_enabled ? 'Yönetime Git' : 'Aktif Etmek İçin Açın'}
+              </button>
             </div>
 
             {/* Customer CRM Card */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
               <div>
-                <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                  <Users size={22} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Users size={22} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', color: restaurantProfile.ext_crm_enabled ? 'var(--success)' : 'var(--text-muted)' }}>
+                      {restaurantProfile.ext_crm_enabled ? 'Açık' : 'Kapalı'}
+                    </span>
+                    <input 
+                      type="checkbox"
+                      checked={restaurantProfile.ext_crm_enabled}
+                      onChange={(e) => handleToggleExtension('ext_crm_enabled', e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                  </div>
                 </div>
                 <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Müşteriler (CRM)</h4>
                 <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Müşteri tabanınızı oluşturun, toplam sipariş sayılarını, e-postalarını ve telefon rehberini takip edin.</p>
               </div>
-              <button onClick={() => setActiveSubView('crm')} className="btn btn-primary" style={{ width: '100%', padding: '8px' }}>Müşterileri Yönet</button>
+              <button 
+                onClick={() => setActiveSubView('crm')} 
+                disabled={!restaurantProfile.ext_crm_enabled}
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '8px', opacity: restaurantProfile.ext_crm_enabled ? 1 : 0.5 }}
+              >
+                {restaurantProfile.ext_crm_enabled ? 'Müşterileri Yönet' : 'Aktif Etmek İçin Açın'}
+              </button>
             </div>
 
             {/* WhatsApp API Card */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
               <div>
-                <div style={{ background: 'rgba(37, 211, 102, 0.1)', color: '#25d366', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                  <MessageSquare size={22} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(37, 211, 102, 0.1)', color: '#25d366', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MessageSquare size={22} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', color: restaurantProfile.ext_whatsapp_enabled ? 'var(--success)' : 'var(--text-muted)' }}>
+                      {restaurantProfile.ext_whatsapp_enabled ? 'Açık' : 'Kapalı'}
+                    </span>
+                    <input 
+                      type="checkbox"
+                      checked={restaurantProfile.ext_whatsapp_enabled}
+                      onChange={(e) => handleToggleExtension('ext_whatsapp_enabled', e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                  </div>
                 </div>
                 <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>WhatsApp API & Kampanya</h4>
                 <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Sipariş alan müşterilere otomatik onay iletin, müşteri gruplarına WhatsApp kampanyaları düzenleyin.</p>
               </div>
-              <button onClick={() => setActiveSubView('whatsapp')} className="btn btn-primary" style={{ width: '100%', padding: '8px', background: '#25d366', borderColor: '#25d366' }}>WhatsApp API Ayarla</button>
+              <button 
+                onClick={() => setActiveSubView('whatsapp')} 
+                disabled={!restaurantProfile.ext_whatsapp_enabled}
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '8px', background: restaurantProfile.ext_whatsapp_enabled ? '#25d366' : 'var(--bg-darker)', borderColor: restaurantProfile.ext_whatsapp_enabled ? '#25d366' : 'var(--panel-border)', opacity: restaurantProfile.ext_whatsapp_enabled ? 1 : 0.5 }}
+              >
+                {restaurantProfile.ext_whatsapp_enabled ? 'WhatsApp API Ayarla' : 'Aktif Etmek İçin Açın'}
+              </button>
             </div>
 
           </div>

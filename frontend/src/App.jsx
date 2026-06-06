@@ -39,6 +39,31 @@ function App() {
     return saved !== null ? JSON.parse(saved) : null;
   });
 
+  const [extensionsSubView, setExtensionsSubView] = useState(null);
+
+  const [restaurantProfile, setRestaurantProfile] = useState({
+    ext_qr_menu_enabled: true,
+    ext_official_website_enabled: true,
+    ext_crm_enabled: true,
+    ext_whatsapp_enabled: false
+  });
+
+  const fetchRestaurantProfile = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/restaurant-profile/');
+      const data = await res.json();
+      if (data && data.length > 0) {
+        setRestaurantProfile(data[0]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchRestaurantProfile();
+  }, []);
+
   React.useEffect(() => {
     localStorage.setItem('isLanding', JSON.stringify(isLanding));
   }, [isLanding]);
@@ -114,7 +139,15 @@ function App() {
       case 'official-website':
         return <OfficialWebsite />;
       case 'extensions':
-        return <Extensions setCurrentTab={setCurrentTab} />;
+        return (
+          <Extensions 
+            setCurrentTab={setCurrentTab} 
+            activeSubView={extensionsSubView}
+            setActiveSubView={setExtensionsSubView}
+            restaurantProfile={restaurantProfile} 
+            fetchRestaurantProfile={fetchRestaurantProfile} 
+          />
+        );
       default:
         return <Dashboard />;
     }
@@ -311,29 +344,66 @@ function App() {
               <span>Raporlar</span>
             </li>
             <li 
-              className={`nav-item ${currentTab === 'qr-menu' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('qr-menu'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <QrCode size={18} />
-              <span>QR Menü (Sipariş)</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'official-website' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('official-website'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <Globe size={18} />
-              <span>Tanıtım Web Sitesi</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'extensions' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('extensions'); setSelectedTable(null); }}
+              className={`nav-item ${currentTab === 'extensions' && extensionsSubView === null ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('extensions'); setExtensionsSubView(null); setSelectedTable(null); }}
               style={{ padding: '10px 12px', fontSize: '13px' }}
             >
               <Puzzle size={18} />
               <span>Eklentiler</span>
             </li>
+            
+            {/* Indented Sub-menu for active extensions */}
+            <div style={{ 
+              paddingLeft: '16px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '4px', 
+              borderLeft: '1px solid rgba(255,255,255,0.06)', 
+              marginLeft: '22px', 
+              marginBottom: '10px', 
+              marginTop: '2px' 
+            }}>
+              {restaurantProfile.ext_qr_menu_enabled && (
+                <div 
+                  className={`nav-item ${currentTab === 'qr-menu' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('qr-menu'); setSelectedTable(null); }}
+                  style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
+                >
+                  <QrCode size={14} />
+                  <span>QR Menü</span>
+                </div>
+              )}
+              {restaurantProfile.ext_official_website_enabled && (
+                <div 
+                  className={`nav-item ${currentTab === 'official-website' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('official-website'); setSelectedTable(null); }}
+                  style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
+                >
+                  <Globe size={14} />
+                  <span>Web Sitesi</span>
+                </div>
+              )}
+              {restaurantProfile.ext_crm_enabled && (
+                <div 
+                  className={`nav-item ${currentTab === 'extensions' && extensionsSubView === 'crm' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('extensions'); setExtensionsSubView('crm'); setSelectedTable(null); }}
+                  style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
+                >
+                  <Users size={14} />
+                  <span>Müşteri CRM</span>
+                </div>
+              )}
+              {restaurantProfile.ext_whatsapp_enabled && (
+                <div 
+                  className={`nav-item ${currentTab === 'extensions' && extensionsSubView === 'whatsapp' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('extensions'); setExtensionsSubView('whatsapp'); setSelectedTable(null); }}
+                  style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
+                >
+                  <MessageSquare size={14} />
+                  <span>WhatsApp API</span>
+                </div>
+              )}
+            </div>
             <li 
               className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}
               onClick={() => { setCurrentTab('settings'); setSelectedTable(null); }}
