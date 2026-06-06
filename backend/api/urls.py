@@ -7,7 +7,7 @@ from .views import (
     RecipeViewSet, RecipeIngredientViewSet, StaffMemberViewSet,
     ExpenseViewSet, CourierViewSet, CourierLogViewSet, RestaurantProfileViewSet,
     CashTransactionViewSet, StockAuditViewSet, CustomerViewSet, WhatsAppConfigViewSet,
-    LowStockView,
+    LowStockView, ReportStatsView,
 )
 from .auth_views import (
     login_view, register_view, logout_view, me_view,
@@ -41,6 +41,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('low-stock/', LowStockView.as_view(), name='low-stock'),
+    path('report-stats/', ReportStatsView.as_view(), name='report-stats'),
     # Auth endpoints
     path('auth/login/', login_view, name='auth-login'),
     path('auth/register/', register_view, name='auth-register'),

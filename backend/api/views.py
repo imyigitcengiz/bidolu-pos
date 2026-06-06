@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status, views
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django.db.models import Sum, Count, F, Q
+from django.db.models import Sum, Count, F, Q, Avg
 from django.utils import timezone
 from datetime import timedelta
 from django.db import transaction
@@ -476,6 +476,169 @@ class LowStockView(views.APIView):
         return Response({
             'count': low.count(),
             'items': data
+        })
+
+
+class ReportStatsView(views.APIView):
+    """Comprehensive report stats with date range filtering."""
+    def get(self, request):
+        from datetime import datetime as dt
+
+        today = timezone.localtime().date()
+
+        # Parse date range
+        start_str = request.query_params.get('start')
+        end_str = request.query_params.get('end')
+
+        if start_str:
+            try:
+                start_date = dt.strptime(start_str, '%Y-%m-%d').date()
+            except ValueError:
+                start_date = today
+        else:
+            start_date = today
+
+        if end_str:
+            try:
+                end_date = dt.strptime(end_str, '%Y-%m-%d').date()
+            except ValueError:
+                end_date = today
+        else:
+            end_date = today
+
+        # Make timezone-aware datetimes
+        start_dt = timezone.make_aware(timezone.datetime.combine(start_date, timezone.datetime.min.time()))
+        end_dt = timezone.make_aware(timezone.datetime.combine(end_date, timezone.datetime.max.time()))
+
+        # Previous period for comparison (same duration before start_date)
+        period_days = (end_date - start_date).days + 1
+        prev_start = start_date - timedelta(days=period_days)
+        prev_end = start_date - timedelta(days=1)
+        prev_start_dt = timezone.make_aware(timezone.datetime.combine(prev_start, timezone.datetime.min.time()))
+        prev_end_dt = timezone.make_aware(timezone.datetime.combine(prev_end, timezone.datetime.max.time()))
+
+        # ── Current period data ──
+        orders = Order.objects.filter(created_at__range=(start_dt, end_dt))
+        completed_orders = orders.filter(status='completed')
+        payments = Payment.objects.filter(created_at__range=(start_dt, end_dt))
+        expenses = Expense.objects.filter(date__range=(start_date, end_date))
+
+        total_revenue = payments.aggregate(t=Sum('amount'))['t'] or 0
+        total_expense = expenses.aggregate(t=Sum('amount'))['t'] or 0
+        net_profit = float(total_revenue) - float(total_expense)
+        order_count = completed_orders.count()
+        avg_order = float(total_revenue) / order_count if order_count > 0 else 0
+
+        # Payment method breakdown
+        payment_methods = payments.values('payment_method').annotate(total=Sum('amount'))
+        methods_data = {'cash': 0.0, 'card': 0.0}
+        for pm in payment_methods:
+            methods_data[pm['payment_method']] = float(pm['total'])
+
+        # ── Previous period data (for comparison) ──
+        prev_payments = Payment.objects.filter(created_at__range=(prev_start_dt, prev_end_dt))
+        prev_expenses = Expense.objects.filter(date__range=(prev_start, prev_end))
+        prev_completed = Order.objects.filter(created_at__range=(prev_start_dt, prev_end_dt), status='completed')
+
+        prev_revenue = float(prev_payments.aggregate(t=Sum('amount'))['t'] or 0)
+        prev_expense_total = float(prev_expenses.aggregate(t=Sum('amount'))['t'] or 0)
+        prev_order_count = prev_completed.count()
+
+        def pct_change(current, previous):
+            if previous == 0:
+                return 100.0 if current > 0 else 0.0
+            return round(((current - previous) / previous) * 100, 1)
+
+        # ── Daily sales series ──
+        daily_sales = []
+        for i in range((end_date - start_date).days + 1):
+            day = start_date + timedelta(days=i)
+            day_start = timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time()))
+            day_end = timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.max.time()))
+            day_revenue = float(Payment.objects.filter(created_at__range=(day_start, day_end)).aggregate(t=Sum('amount'))['t'] or 0)
+            day_orders = Order.objects.filter(created_at__range=(day_start, day_end), status='completed').count()
+            daily_sales.append({
+                'date': day.strftime('%d.%m'),
+                'full_date': day.strftime('%Y-%m-%d'),
+                'revenue': day_revenue,
+                'orders': day_orders,
+            })
+
+        # ── Hourly distribution ──
+        hourly = [0] * 24
+        for order in completed_orders:
+            h = timezone.localtime(order.created_at).hour
+            hourly[h] += 1
+
+        # ── Top 10 products ──
+        top_products = OrderItem.objects.filter(
+            order__in=completed_orders
+        ).values(
+            name=F('menu_item__name')
+        ).annotate(
+            total_qty=Sum('quantity'),
+            total_revenue=Sum(F('price') * F('quantity'))
+        ).order_by('-total_qty')[:10]
+
+        # ── Channel breakdown ──
+        channel_breakdown = {}
+        for o in completed_orders:
+            channel = 'Masa Satışları'
+            if o.table and o.table.name:
+                for ch in ['Yemeksepeti', 'Getir', 'Trendyol', 'Migros', 'WebSitesi']:
+                    if o.table.name.startswith(ch):
+                        channel = ch
+                        break
+            channel_breakdown[channel] = channel_breakdown.get(channel, 0) + float(o.total_amount)
+
+        # ── Expense category breakdown ──
+        expense_breakdown = {}
+        for e in expenses:
+            cat = e.category or 'Diğer'
+            expense_breakdown[cat] = expense_breakdown.get(cat, 0) + float(e.amount)
+
+        # ── Recent orders ──
+        recent_orders = []
+        for o in orders.order_by('-created_at')[:20]:
+            payment = o.payments.first()
+            recent_orders.append({
+                'id': o.id,
+                'table': o.table.name if o.table else '—',
+                'total': float(o.total_amount),
+                'status': o.get_status_display(),
+                'status_key': o.status,
+                'payment_method': payment.get_payment_method_display() if payment else '—',
+                'date': timezone.localtime(o.created_at).strftime('%d.%m.%Y %H:%M'),
+                'item_count': o.items.count(),
+            })
+
+        return Response({
+            'period': {
+                'start': start_date.isoformat(),
+                'end': end_date.isoformat(),
+                'days': period_days,
+            },
+            'summary': {
+                'total_revenue': float(total_revenue),
+                'total_expense': float(total_expense),
+                'net_profit': net_profit,
+                'order_count': order_count,
+                'avg_order': round(avg_order, 2),
+                'cash_total': methods_data['cash'],
+                'card_total': methods_data['card'],
+            },
+            'comparison': {
+                'revenue_change': pct_change(float(total_revenue), prev_revenue),
+                'expense_change': pct_change(float(total_expense), prev_expense_total),
+                'profit_change': pct_change(net_profit, prev_revenue - prev_expense_total),
+                'order_change': pct_change(order_count, prev_order_count),
+            },
+            'daily_sales': daily_sales,
+            'hourly_distribution': hourly,
+            'top_products': list(top_products),
+            'channel_breakdown': channel_breakdown,
+            'expense_breakdown': expense_breakdown,
+            'recent_orders': recent_orders,
         })
 
 
