@@ -17,7 +17,8 @@ const PLANS = [
     ],
     disabledFeatures: [
       'Detaylı Haftalık Analizler',
-      'Öncelikli 7/24 Destek'
+      'Öncelikli 7/24 Destek',
+      'Eklentiler (QR Menü, Web Sitesi, WhatsApp)'
     ]
   },
   {
@@ -31,9 +32,14 @@ const PLANS = [
       '3 Mutfak Ekranı',
       'Detaylı Satış ve Ürün Analizleri',
       'Haftalık/Aylık Kâr-Zarar Raporu',
-      'Öncelikli Destek Hattı'
+      'Öncelikli Destek Hattı',
+      'QR Menü Eklentisi (Dahil)',
+      'Tanıtım Web Sitesi Eklentisi (Dahil)'
     ],
-    disabledFeatures: []
+    disabledFeatures: [
+      'WhatsApp Kampanyaları Eklentisi',
+      'Kurye Takip Eklentisi'
+    ]
   },
   {
     id: 'Enterprise',
@@ -42,18 +48,25 @@ const PLANS = [
     desc: 'Çok şubeli büyük restoran zincirleri ve franchise işletmeler için.',
     features: [
       'Sınırsız Masa & Çoklu Şube',
-      'Tüm Gelişmiş Özellikler Dahil',
       'Sınırsız Mutfak Ekranı',
       'API ve Entegrasyon Desteği',
       'Özel Bulut Sunucusu',
-      '7/24 Özel Müşteri Temsilcisi'
+      '7/24 Özel Müşteri Temsilcisi',
+      'Tüm Eklentiler Dahil (QR Menü, Web Sitesi, WhatsApp, Kurye)'
     ],
     disabledFeatures: []
   }
 ];
 
-export default function SettingsComponent() {
-  const [activeSubTab, setActiveSubTab] = useState('restaurant'); // 'restaurant', 'profile', 'plans'
+export default function SettingsComponent({ fetchRestaurantProfile: parentFetchProfile }) {
+  const [activeSubTab, setActiveSubTab] = useState(() => {
+    const saved = localStorage.getItem('settingsSubTab');
+    if (saved) {
+      localStorage.removeItem('settingsSubTab'); // Use once and clear
+      return saved;
+    }
+    return 'restaurant';
+  }); // 'restaurant', 'profile', 'plans'
   
   // Restaurant Profile state
   const [profileId, setProfileId] = useState(null);
@@ -219,6 +232,9 @@ export default function SettingsComponent() {
         if (res.ok) {
           alert(`Planınız başarıyla ${planId} olarak değiştirildi!`);
           fetchRestaurantProfile();
+          if (parentFetchProfile) {
+            parentFetchProfile();
+          }
         }
       }
     } catch (err) {

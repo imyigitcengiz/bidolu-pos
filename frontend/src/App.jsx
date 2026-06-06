@@ -20,8 +20,60 @@ import Extensions from './components/Extensions';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
   ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode, Puzzle, MessageSquare,
-  Contact
+  Contact, Lock
 } from 'lucide-react';
+
+const planLevels = {
+  'Starter': 1,
+  'Growth': 2,
+  'Enterprise': 3
+};
+
+const hasRequiredPlan = (currentPlan, requiredPlan) => {
+  const current = planLevels[currentPlan] || 1;
+  const required = planLevels[requiredPlan] || 1;
+  return current >= required;
+};
+
+const UpgradePage = ({ requiredPlan, featureName, currentPlan, setCurrentTab }) => {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '60vh',
+      padding: '40px',
+      textAlign: 'center',
+      background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.4) 100%)',
+      borderRadius: '16px',
+      border: '1px solid var(--panel-border)',
+      maxWidth: '640px',
+      margin: '40px auto'
+    }}>
+      <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+        <Lock size={28} />
+      </div>
+      <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '12px' }}>{featureName} Özelliği Planınıza Dahil Değil</h2>
+      <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6', maxWidth: '480px', marginBottom: '20px' }}>
+        Bu özelliği kullanabilmek için aktif planınızın en az <strong>{requiredPlan === 'Enterprise' ? 'Kurumsal (Enterprise)' : 'Büyüyen (Growth)'}</strong> planı olması gerekmektedir. Mevcut planınız: <strong>{currentPlan}</strong>.
+      </p>
+      
+      <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+        <button 
+          onClick={() => {
+            localStorage.setItem('settingsSubTab', 'plans');
+            setCurrentTab('settings');
+          }}
+          className="btn btn-primary"
+          style={{ padding: '10px 24px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', background: requiredPlan === 'Enterprise' ? '#f85f34' : 'var(--primary)', borderColor: requiredPlan === 'Enterprise' ? '#f85f34' : 'var(--primary)' }}
+        >
+          Planları İncele & Yükselt
+        </button>
+      </div>
+    </div>
+  );
+};
 
 function App() {
   const [isLanding, setIsLanding] = useState(() => {
@@ -131,6 +183,7 @@ function App() {
   };
 
   const [restaurantProfile, setRestaurantProfile] = useState({
+    active_plan: 'Growth',
     ext_qr_menu_enabled: true,
     ext_official_website_enabled: true,
     ext_crm_enabled: true,
@@ -191,6 +244,8 @@ function App() {
   };
 
   const renderContent = () => {
+    const activePlan = restaurantProfile?.active_plan || 'Growth';
+
     switch (currentTab) {
       case 'dashboard':
         return <Dashboard />;
@@ -234,12 +289,21 @@ function App() {
       case 'reports':
         return <Reports />;
       case 'settings':
-        return <SettingsComponent />;
+        return <SettingsComponent fetchRestaurantProfile={fetchRestaurantProfile} />;
       case 'qr-menu':
+        if (!hasRequiredPlan(activePlan, 'Growth')) {
+          return <UpgradePage requiredPlan="Growth" featureName="QR Menü" currentPlan={activePlan} setCurrentTab={setCurrentTab} />;
+        }
         return <WebsiteBuilder />;
       case 'official-website':
+        if (!hasRequiredPlan(activePlan, 'Growth')) {
+          return <UpgradePage requiredPlan="Growth" featureName="Tanıtım Web Sitesi" currentPlan={activePlan} setCurrentTab={setCurrentTab} />;
+        }
         return <OfficialWebsite />;
       case 'extensions':
+        if (extensionsSubView === 'whatsapp' && !hasRequiredPlan(activePlan, 'Enterprise')) {
+          return <UpgradePage requiredPlan="Enterprise" featureName="WhatsApp Kampanyaları" currentPlan={activePlan} setCurrentTab={setCurrentTab} />;
+        }
         return (
           <Extensions 
             setCurrentTab={setCurrentTab} 
@@ -485,7 +549,7 @@ function App() {
               marginBottom: '10px', 
               marginTop: '2px' 
             }}>
-              {restaurantProfile.ext_qr_menu_enabled && (
+              {restaurantProfile.ext_qr_menu_enabled && hasRequiredPlan(restaurantProfile.active_plan, 'Growth') && (
                 <div 
                   className={`nav-item ${currentTab === 'qr-menu' ? 'active' : ''}`}
                   onClick={() => { setCurrentTab('qr-menu'); setSelectedTable(null); }}
@@ -495,7 +559,7 @@ function App() {
                   <span>QR Menü</span>
                 </div>
               )}
-              {restaurantProfile.ext_official_website_enabled && (
+              {restaurantProfile.ext_official_website_enabled && hasRequiredPlan(restaurantProfile.active_plan, 'Growth') && (
                 <div 
                   className={`nav-item ${currentTab === 'official-website' ? 'active' : ''}`}
                   onClick={() => { setCurrentTab('official-website'); setSelectedTable(null); }}
@@ -506,7 +570,7 @@ function App() {
                 </div>
               )}
               {/* Müşteri CRM has been promoted to a core sidebar item */}
-              {restaurantProfile.ext_whatsapp_enabled && (
+              {restaurantProfile.ext_whatsapp_enabled && hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') && (
                 <div 
                   className={`nav-item ${currentTab === 'extensions' && extensionsSubView === 'whatsapp' ? 'active' : ''}`}
                   onClick={() => { setCurrentTab('extensions'); setExtensionsSubView('whatsapp'); setSelectedTable(null); }}
