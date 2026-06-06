@@ -157,7 +157,37 @@ class OrderViewSet(viewsets.ModelViewSet):
                 description=f"Masa Ödemesi ({table.name}) - Sipariş #{order.id} ({payment_method == 'cash' and 'Nakit' or 'Kredi Kartı'})"
             )
         
-        return Response({'message': 'Ödeme alındı ve masa kapatıldı', 'order': OrderSerializer(order).data})
+        # Check WhatsApp Auto Message
+        whatsapp_simulated = None
+        try:
+            profile = RestaurantProfile.objects.first()
+            if profile and profile.ext_whatsapp_enabled:
+                wa_config = WhatsAppConfig.objects.first()
+                if wa_config and wa_config.is_auto_message_enabled:
+                    # Select a customer (either first customer or mock name)
+                    customer = Customer.objects.first()
+                    cust_name = customer.name if customer else "Değerli Müşterimiz"
+                    cust_phone = customer.phone if customer else "0555 555 55 55"
+                    
+                    msg = wa_config.message_template.replace('{customer_name}', cust_name).replace('{order_id}', str(order.id))
+                    
+                    print(f"\n--- [WHATSAPP AUTO MESSAGE SIMULATION] ---")
+                    print(f"To: {cust_name} ({cust_phone})")
+                    print(f"Message: {msg}")
+                    print(f"-------------------------------------------\n")
+                    
+                    whatsapp_simulated = {
+                        'to': f"{cust_name} ({cust_phone})",
+                        'message': msg
+                    }
+        except Exception as e:
+            print(f"WhatsApp auto message error: {e}")
+        
+        return Response({
+            'message': 'Ödeme alındı ve masa kapatıldı',
+            'order': OrderSerializer(order).data,
+            'whatsapp_simulated': whatsapp_simulated
+        })
 
 class OrderItemViewSet(viewsets.ModelViewSet):
     queryset = OrderItem.objects.all().order_by('-id')

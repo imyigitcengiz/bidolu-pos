@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Shield, Award, Check, Clock, Edit3, ArrowRight, User } from 'lucide-react';
+import { Settings, Shield, Award, Check, Clock, Edit3, ArrowRight, User, MessageSquare, Save } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -73,9 +73,65 @@ export default function SettingsComponent() {
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
 
+  // WhatsApp Config state
+  const [waConfig, setWaConfig] = useState({
+    id: null,
+    api_key: '',
+    phone_number_id: '',
+    is_auto_message_enabled: true,
+    message_template: '',
+    is_live_chat_enabled: false,
+    ask_admin_before_sending: true
+  });
+  const [loadingWa, setLoadingWa] = useState(false);
+
   useEffect(() => {
     fetchRestaurantProfile();
+    fetchWhatsAppConfig();
   }, []);
+
+  const fetchWhatsAppConfig = async () => {
+    try {
+      setLoadingWa(true);
+      const res = await fetch(`${API_BASE}/whatsapp-configs/`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        setWaConfig(data[0]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingWa(false);
+    }
+  };
+
+  const handleSaveWhatsAppConfig = async (e) => {
+    e.preventDefault();
+    try {
+      let res;
+      if (waConfig.id) {
+        res = await fetch(`${API_BASE}/whatsapp-configs/${waConfig.id}/`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(waConfig)
+        });
+      } else {
+        res = await fetch(`${API_BASE}/whatsapp-configs/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(waConfig)
+        });
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        setWaConfig(data);
+        alert('WhatsApp API ayarları başarıyla kaydedildi.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchRestaurantProfile = async () => {
     try {
@@ -197,6 +253,13 @@ export default function SettingsComponent() {
             onClick={() => setActiveSubTab('plans')}
           >
             🚀 Abonelik Planları
+          </button>
+          <button 
+            className={`btn ${activeSubTab === 'whatsapp' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ justifyContent: 'flex-start', padding: '12px', fontSize: '13px' }}
+            onClick={() => setActiveSubTab('whatsapp')}
+          >
+            💬 WhatsApp API Ayarları
           </button>
         </div>
       </div>
@@ -337,6 +400,100 @@ export default function SettingsComponent() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* WhatsApp API Settings */}
+            {activeSubTab === 'whatsapp' && (
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', color: '#25d366', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MessageSquare size={20} /> WhatsApp API Entegrasyon Ayarları
+                </h3>
+                
+                {loadingWa ? (
+                  <div className="spinner"></div>
+                ) : (
+                  <form onSubmit={handleSaveWhatsAppConfig} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '600px' }}>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '-10px', marginBottom: '4px', lineHeight: '1.4' }}>
+                      💡 Bu entegrasyon müşteri bildirimleri için kullanılabilir.
+                    </p>
+
+                    <div className="form-group">
+                      <label>WhatsApp Cloud API Access Token</label>
+                      <input 
+                        type="password" 
+                        className="form-control" 
+                        placeholder="wh_live_token_..." 
+                        value={waConfig.api_key || ''} 
+                        onChange={(e) => setWaConfig({ ...waConfig, api_key: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>WhatsApp Phone Number ID</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="örn: 10984852" 
+                        value={waConfig.phone_number_id || ''} 
+                        onChange={(e) => setWaConfig({ ...waConfig, phone_number_id: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}>
+                      <div>
+                        <strong style={{ fontSize: '14px', display: 'block' }}>Otomatik Sipariş Bildirimleri</strong>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sipariş tamamlandığında otomatik WhatsApp mesajı gönderilir.</span>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        checked={waConfig.is_auto_message_enabled}
+                        onChange={(e) => setWaConfig({ ...waConfig, is_auto_message_enabled: e.target.checked })}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}>
+                      <div>
+                        <strong style={{ fontSize: '14px', display: 'block' }}>Müşteri Canlı İletişim Entegrasyonu</strong>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Müşteri ilişkilerinde canlı iletişim için bildirim altyapısını aktif eder.</span>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        checked={waConfig.is_live_chat_enabled || false}
+                        onChange={(e) => setWaConfig({ ...waConfig, is_live_chat_enabled: e.target.checked })}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}>
+                      <div>
+                        <strong style={{ fontSize: '14px', display: 'block' }}>Bildirim Öncesi Admine Sor</strong>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>İşaretli ise bildirim gitmeden onay sorulur. İşaretsiz ise onay sorulmadan (atla) otomatik gönderilir.</span>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        checked={waConfig.ask_admin_before_sending !== false}
+                        onChange={(e) => setWaConfig({ ...waConfig, ask_admin_before_sending: e.target.checked })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Otomatik Sipariş Onay Şablonu</label>
+                      <textarea 
+                        className="form-control" 
+                        rows="4" 
+                        value={waConfig.message_template || ''} 
+                        onChange={(e) => setWaConfig({ ...waConfig, message_template: e.target.value })}
+                        placeholder="Değişkenler: {customer_name}, {order_id}"
+                      />
+                    </div>
+
+                    <button type="submit" className="btn btn-primary" style={{ width: 'fit-content', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', background: '#25d366', borderColor: '#25d366' }}>
+                      <Save size={16} /> API Entegrasyonunu Kaydet
+                    </button>
+                  </form>
+                )}
               </div>
             )}
           </>

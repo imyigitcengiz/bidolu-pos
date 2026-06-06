@@ -19,7 +19,8 @@ import OfficialWebsite from './components/OfficialWebsite';
 import Extensions from './components/Extensions';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
-  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode, Puzzle
+  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode, Puzzle, MessageSquare,
+  Contact
 } from 'lucide-react';
 
 function App() {
@@ -45,7 +46,8 @@ function App() {
     ext_qr_menu_enabled: true,
     ext_official_website_enabled: true,
     ext_crm_enabled: true,
-    ext_whatsapp_enabled: false
+    ext_whatsapp_enabled: false,
+    ext_live_courier_enabled: false
   });
 
   const fetchRestaurantProfile = async () => {
@@ -126,10 +128,21 @@ function App() {
         return <CashRegister />;
       case 'personnel':
         return <Personnel />;
+      case 'crm':
+        return (
+          <Extensions 
+            setCurrentTab={setCurrentTab} 
+            activeSubView="crm"
+            setActiveSubView={() => {}}
+            restaurantProfile={restaurantProfile} 
+            fetchRestaurantProfile={fetchRestaurantProfile} 
+            isCoreCrm={true}
+          />
+        );
       case 'expenses':
         return <Expenses />;
       case 'couriers':
-        return <Couriers />;
+        return <Couriers restaurantProfile={restaurantProfile} />;
       case 'reports':
         return <Reports />;
       case 'settings':
@@ -173,6 +186,8 @@ function App() {
         return 'Kasa İşlemleri';
       case 'personnel':
         return 'Personel Yönetimi';
+      case 'crm':
+        return 'Müşteri CRM';
       case 'expenses':
         return 'Gider Takibi';
       case 'couriers':
@@ -212,6 +227,8 @@ function App() {
         return 'Nakit giriş-çıkışları, tahsilatlar ve kasa bakiyeleri';
       case 'personnel':
         return 'İşletme personelleri, çalışma rolleri ve yetkiler';
+      case 'crm':
+        return 'Müşteri kayıtları, iletişim rehberi, sipariş geçmişleri ve CSV içe/dışa aktarım yönetimi';
       case 'expenses':
         return 'Dükkan kirası, faturalar ve diğer tüm harcamalar';
       case 'couriers':
@@ -320,6 +337,14 @@ function App() {
               <span>Personeller</span>
             </li>
             <li 
+              className={`nav-item ${currentTab === 'crm' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('crm'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <Contact size={18} />
+              <span>Müşteri CRM</span>
+            </li>
+            <li 
               className={`nav-item ${currentTab === 'expenses' ? 'active' : ''}`}
               onClick={() => { setCurrentTab('expenses'); setSelectedTable(null); }}
               style={{ padding: '10px 12px', fontSize: '13px' }}
@@ -383,16 +408,7 @@ function App() {
                   <span>Web Sitesi</span>
                 </div>
               )}
-              {restaurantProfile.ext_crm_enabled && (
-                <div 
-                  className={`nav-item ${currentTab === 'extensions' && extensionsSubView === 'crm' ? 'active' : ''}`}
-                  onClick={() => { setCurrentTab('extensions'); setExtensionsSubView('crm'); setSelectedTable(null); }}
-                  style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
-                >
-                  <Users size={14} />
-                  <span>Müşteri CRM</span>
-                </div>
-              )}
+              {/* Müşteri CRM has been promoted to a core sidebar item */}
               {restaurantProfile.ext_whatsapp_enabled && (
                 <div 
                   className={`nav-item ${currentTab === 'extensions' && extensionsSubView === 'whatsapp' ? 'active' : ''}`}

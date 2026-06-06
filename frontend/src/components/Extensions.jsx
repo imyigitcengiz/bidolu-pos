@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, QrCode, Globe, Users, MessageSquare, Plus, Trash2, Send, Save, ArrowLeft, RefreshCw, CheckCircle2, Play } from 'lucide-react';
+import { Layers, QrCode, Globe, Users, MessageSquare, Plus, Trash2, Send, Save, ArrowLeft, RefreshCw, CheckCircle2, Play, MapPin } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -32,8 +32,10 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
     id: null,
     api_key: '',
     phone_number_id: '',
-    is_auto_message_enabled: false,
-    message_template: ''
+    is_auto_message_enabled: true,
+    message_template: '',
+    is_live_chat_enabled: false,
+    ask_admin_before_sending: true
   });
   const [loadingWa, setLoadingWa] = useState(false);
 
@@ -43,6 +45,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
   const [campaignLogs, setCampaignLogs] = useState([]);
   const [campaignRunning, setCampaignRunning] = useState(false);
   const [campaignProgress, setCampaignProgress] = useState(0);
+  const [waSubTab, setWaSubTab] = useState('contacts'); // 'contacts', 'campaign', 'logs'
 
   useEffect(() => {
     fetchCustomers();
@@ -120,6 +123,153 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
     }
   };
 
+  const handleToggleSubscription = async (id, currentStatus) => {
+    const newStatus = currentStatus === 'cancelled' ? 'active' : 'cancelled';
+    try {
+      const res = await fetch(`${API_BASE}/customers/${id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription_status: newStatus })
+      });
+      if (res.ok) {
+        fetchCustomers();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (customers.length === 0) {
+      alert('Dışa aktarılacak müşteri kaydı bulunamadı.');
+      return;
+    }
+    const headers = ['İsim', 'Telefon', 'E-posta', 'Sipariş Sayısı', 'Abonelik Durumu'];
+    const rows = customers.map(c => [
+      c.name,
+      c.phone,
+      c.email || '',
+      c.total_orders || 0,
+      c.subscription_status === 'cancelled' ? 'cancelled' : 'active'
+    ]);
+    
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+      + [headers.join(','), ...rows.map(e => e.map(val => `"${val.toString().replace(/"/g, '""')}"`).join(','))].join('\n');
+      
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `bidolu_crm_musteriler_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const parseCSVRow = (line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim().replace(/^["']|["']$/g, ''));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim().replace(/^["']|["']$/g, ''));
+    return result;
+  };
+
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const lines = text.split(/\r?\n/);
+      if (lines.length <= 1) {
+        alert('CSV dosyası boş veya başlık satırı eksik.');
+        return;
+      }
+
+      // Parse headers
+      const headers = lines[0].split(',').map(h => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+      
+      // Map columns
+      const nameIndex = headers.findIndex(h => h.includes('isim') || h.includes('name') || h.includes('ad'));
+      const phoneIndex = headers.findIndex(h => h.includes('telefon') || h.includes('phone') || h.includes('tel'));
+      const emailIndex = headers.findIndex(h => h.includes('posta') || h.includes('email') || h.includes('mail'));
+      const statusIndex = headers.findIndex(h => h.includes('durum') || h.includes('status') || h.includes('abonelik'));
+
+      if (nameIndex === -1 || phoneIndex === -1) {
+        alert('CSV dosyasında "İsim" ve "Telefon" sütunları bulunamadı. Lütfen kontrol edin.');
+        return;
+      }
+
+      const importedCustomers = [];
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        
+        const row = parseCSVRow(lines[i]);
+        if (row.length < Math.max(nameIndex, phoneIndex) + 1) continue;
+
+        const name = row[nameIndex];
+        const phone = row[phoneIndex];
+        const email = emailIndex !== -1 ? row[emailIndex] : '';
+        const status = statusIndex !== -1 ? (row[statusIndex].toLowerCase().includes('iptal') || row[statusIndex].toLowerCase().includes('cancel') ? 'cancelled' : 'active') : 'active';
+
+        if (name && phone) {
+          importedCustomers.push({ name, phone, email, subscription_status: status });
+        }
+      }
+
+      if (importedCustomers.length === 0) {
+        alert('CSV dosyasında geçerli müşteri kaydı bulunamadı.');
+        return;
+      }
+
+      if (!confirm(`${importedCustomers.length} adet müşteri CRM rehberine eklenecektir. Onaylıyor musunuz?`)) {
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const cust of importedCustomers) {
+        try {
+          const res = await fetch(`${API_BASE}/customers/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: cust.name,
+              phone: cust.phone,
+              email: cust.email,
+              subscription_status: cust.subscription_status,
+              total_orders: 0
+            })
+          });
+          if (res.ok) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          failCount++;
+        }
+      }
+
+      fetchCustomers();
+      alert(`Toplu yükleme tamamlandı!\nBaşarılı: ${successCount}\nHatalı (Örn: Mükerrer Numara): ${failCount}`);
+      e.target.value = '';
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
   const handleSaveWhatsAppConfig = async (e) => {
     e.preventDefault();
     try {
@@ -154,14 +304,30 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
       return;
     }
 
+    // Filter recipients based on segment
+    let recipients = [];
+    if (campaignSegment === 'all') {
+      recipients = customers;
+    } else if (campaignSegment === 'active') {
+      recipients = customers.filter(c => c.subscription_status !== 'cancelled');
+    } else if (campaignSegment === 'cancelled') {
+      recipients = customers.filter(c => c.subscription_status === 'cancelled');
+    }
+
+    if (recipients.length === 0) {
+      alert('Seçilen segmentte alıcı bulunamadı.');
+      return;
+    }
+
+    if (waConfig.ask_admin_before_sending !== false) {
+      const confirmed = window.confirm(`${recipients.length} müşteriye kampanya bildirimi gönderilecektir. Onaylıyor musunuz?`);
+      if (!confirmed) return;
+    }
+
     setCampaignRunning(true);
     setCampaignProgress(0);
     setCampaignLogs([]);
-
-    // Filter recipients based on segment
-    const recipients = campaignSegment === 'all' 
-      ? customers 
-      : customers.filter(c => c.total_orders <= 10); // Simulated passive segment
+    setWaSubTab('logs');
 
     try {
       const res = await fetch(`${API_BASE}/whatsapp-configs/send_campaign/`, {
@@ -188,6 +354,10 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
             alert('WhatsApp Kampanyası başarıyla tamamlandı!');
           }
         }, 1200);
+      } else {
+        const errData = await res.json();
+        alert(errData.error || 'Kampanya başlatılamadı.');
+        setCampaignRunning(false);
       }
     } catch (err) {
       console.error(err);
@@ -267,38 +437,6 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
               </button>
             </div>
 
-            {/* Customer CRM Card */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Users size={22} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '11px', color: restaurantProfile.ext_crm_enabled ? 'var(--success)' : 'var(--text-muted)' }}>
-                      {restaurantProfile.ext_crm_enabled ? 'Açık' : 'Kapalı'}
-                    </span>
-                    <input 
-                      type="checkbox"
-                      checked={restaurantProfile.ext_crm_enabled}
-                      onChange={(e) => handleToggleExtension('ext_crm_enabled', e.target.checked)}
-                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                    />
-                  </div>
-                </div>
-                <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Müşteriler (CRM)</h4>
-                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Müşteri tabanınızı oluşturun, toplam sipariş sayılarını, e-postalarını ve telefon rehberini takip edin.</p>
-              </div>
-              <button 
-                onClick={() => setActiveSubView('crm')} 
-                disabled={!restaurantProfile.ext_crm_enabled}
-                className="btn btn-primary" 
-                style={{ width: '100%', padding: '8px', opacity: restaurantProfile.ext_crm_enabled ? 1 : 0.5 }}
-              >
-                {restaurantProfile.ext_crm_enabled ? 'Müşterileri Yönet' : 'Aktif Etmek İçin Açın'}
-              </button>
-            </div>
-
             {/* WhatsApp API Card */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
               <div>
@@ -318,8 +456,8 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                     />
                   </div>
                 </div>
-                <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>WhatsApp API & Kampanya</h4>
-                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Sipariş alan müşterilere otomatik onay iletin, müşteri gruplarına WhatsApp kampanyaları düzenleyin.</p>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>WhatsApp Kampanyaları</h4>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Müşteri gruplarına ve abonelere özel WhatsApp mesaj şablonları ile toplu kampanya bildirimleri gönderin.</p>
               </div>
               <button 
                 onClick={() => setActiveSubView('whatsapp')} 
@@ -327,7 +465,30 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                 className="btn btn-primary" 
                 style={{ width: '100%', padding: '8px', background: restaurantProfile.ext_whatsapp_enabled ? '#25d366' : 'var(--bg-darker)', borderColor: restaurantProfile.ext_whatsapp_enabled ? '#25d366' : 'var(--panel-border)', opacity: restaurantProfile.ext_whatsapp_enabled ? 1 : 0.5 }}
               >
-                {restaurantProfile.ext_whatsapp_enabled ? 'WhatsApp API Ayarla' : 'Aktif Etmek İçin Açın'}
+                {restaurantProfile.ext_whatsapp_enabled ? 'WhatsApp Kampanyalarını Yönet' : 'Aktif Etmek İçin Açın'}
+              </button>
+            </div>
+
+            {/* Live Courier Tracking Card */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MapPin size={22} />
+                  </div>
+                  <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                    YAKINDA
+                  </span>
+                </div>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Live Kurye Lokasyon Takibi</h4>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Teslimattaki kuryelerin canlı konumlarını, sipariş rotalarını ve durumlarını anlık haritadan izleyin.</p>
+              </div>
+              <button 
+                disabled={true}
+                className="btn btn-secondary" 
+                style={{ width: '100%', padding: '8px', cursor: 'not-allowed', opacity: 0.6 }}
+              >
+                Yakında Hizmete Girecektir
               </button>
             </div>
 
@@ -348,7 +509,16 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
             <div className="card">
               <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Müşteri Rehberi ({customers.length})</span>
-                <button onClick={fetchCustomers} className="action-icon-btn"><RefreshCw size={14} /></button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button onClick={handleExportCSV} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    📥 Dışa Aktar (CSV)
+                  </button>
+                  <label className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+                    📤 İçe Aktar (CSV)
+                    <input type="file" accept=".csv" onChange={handleImportCSV} style={{ display: 'none' }} />
+                  </label>
+                  <button onClick={fetchCustomers} className="action-icon-btn"><RefreshCw size={14} /></button>
+                </div>
               </h3>
 
               {loadingCrm ? (
@@ -417,135 +587,219 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
             <button onClick={() => setActiveSubView(null)} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '12px' }}>
               <ArrowLeft size={14} /> Eklentilere Dön
             </button>
-            <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>/ WhatsApp API Otomasyonu</span>
+            <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>/ WhatsApp Kampanyaları</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr', gap: '24px' }}>
-            {/* Configuration */}
-            <div className="card" style={{ height: 'fit-content' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', color: '#25d366', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MessageSquare size={20} /> API Entegrasyon Ayarları
-              </h3>
-              
-              {loadingWa ? (
-                <div className="spinner"></div>
-              ) : (
-                <form onSubmit={handleSaveWhatsAppConfig} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="form-group">
-                    <label>WhatsApp Cloud API Access Token</label>
-                    <input 
-                      type="password" 
-                      className="form-control" 
-                      placeholder="wh_live_token_..." 
-                      value={waConfig.api_key || ''} 
-                      onChange={(e) => setWaConfig({ ...waConfig, api_key: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>WhatsApp Phone Number ID</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="örn: 10984852" 
-                      value={waConfig.phone_number_id || ''} 
-                      onChange={(e) => setWaConfig({ ...waConfig, phone_number_id: e.target.value })}
-                    />
-                  </div>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}>
-                    <div>
-                      <strong style={{ fontSize: '14px', display: 'block' }}>Otomatik Sipariş Bildirimleri</strong>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sipariş tamamlandığında otomatik WhatsApp mesajı gönderilir.</span>
-                    </div>
-                    <input 
-                      type="checkbox" 
-                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                      checked={waConfig.is_auto_message_enabled}
-                      onChange={(e) => setWaConfig({ ...waConfig, is_auto_message_enabled: e.target.checked })}
-                    />
-                  </div>
+          {/* Subtab Navigation inside WhatsApp View */}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px' }}>
+            <button 
+              onClick={() => setWaSubTab('contacts')} 
+              className={`btn ${waSubTab === 'contacts' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            >
+              <Users size={16} /> Abonelik & Kişiler
+            </button>
+            <button 
+              onClick={() => setWaSubTab('campaign')} 
+              className={`btn ${waSubTab === 'campaign' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            >
+              <Send size={16} /> Kampanya Gönderimi
+            </button>
+            <button 
+              onClick={() => setWaSubTab('logs')} 
+              className={`btn ${waSubTab === 'logs' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            >
+              <RefreshCw size={16} /> Gönderim Kayıtları {(campaignRunning || campaignLogs.length > 0) && `(${campaignLogs.length})`}
+            </button>
+          </div>
 
-                  <div className="form-group">
-                    <label>Otomatik Sipariş Onay Şablonu</label>
-                    <textarea 
-                      className="form-control" 
-                      rows="4" 
-                      value={waConfig.message_template || ''} 
-                      onChange={(e) => setWaConfig({ ...waConfig, message_template: e.target.value })}
-                      placeholder="Değişkenler: {customer_name}, {order_id}"
-                    />
-                  </div>
-
-                  <button type="submit" className="btn btn-primary" style={{ width: '100%', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', background: '#25d366', borderColor: '#25d366' }}>
-                    <Save size={16} /> API Entegrasyonunu Kaydet
-                  </button>
-                </form>
-              )}
-            </div>
-
-            {/* Campaign Planner */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
-              <div className="card">
-                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Send size={18} /> Toplu WhatsApp Kampanyası Planlayıcı
-                </h3>
-                
-                <div className="form-group">
-                  <label>Müşteri Segmenti Seçin</label>
-                  <select className="form-control form-select" value={campaignSegment} onChange={(e) => setCampaignSegment(e.target.value)}>
-                    <option value="all">Tüm Kayıtlı CRM Müşterileri ({customers.length})</option>
-                    <option value="passive">Pasif Müşteriler (Sipariş Sayısı ≤ 10)</option>
-                  </select>
+          {/* Tab 1: Contacts & Subscription Management */}
+          {waSubTab === 'contacts' && (
+            <div>
+              {/* Summary Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                <div className="card" style={{ padding: '16px', background: 'rgba(37, 211, 102, 0.05)', border: '1px solid rgba(37, 211, 102, 0.15)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Devam Eden Abonelikler</span>
+                  <strong style={{ fontSize: '24px', color: '#25d366' }}>
+                    {customers.filter(c => c.subscription_status !== 'cancelled').length}
+                  </strong>
                 </div>
-
-                <div className="form-group">
-                  <label>Kampanya Mesajı</label>
-                  <textarea 
-                    className="form-control" 
-                    rows="4" 
-                    value={campaignMessage} 
-                    onChange={(e) => setCampaignMessage(e.target.value)}
-                    placeholder="Müşterilere gidecek kampanya yazısı..."
-                  />
-                  <small style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
-                    İpucu: Kişiselleştirmek için <strong>{'{customer_name}'}</strong> etiketini kullanabilirsiniz.
-                  </small>
+                <div className="card" style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.15)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>İptal Olan Abonelikler</span>
+                  <strong style={{ fontSize: '24px', color: '#ef4444' }}>
+                    {customers.filter(c => c.subscription_status === 'cancelled').length}
+                  </strong>
                 </div>
-
-                <button 
-                  className="btn btn-primary" 
-                  disabled={campaignRunning} 
-                  onClick={handleStartCampaign}
-                  style={{ width: '100%', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', background: '#0284c7', borderColor: '#0284c7' }}
-                >
-                  <Play size={16} /> {campaignRunning ? 'Kampanya Gönderiliyor...' : 'Kampanyayı Başlat (WhatsApp API)'}
-                </button>
               </div>
 
-              {/* Campaign Logs Tracker */}
-              {(campaignRunning || campaignLogs.length > 0) && (
-                <div className="card">
-                  <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>Kampanya Gönderim Raporu</h3>
-                  
-                  {campaignRunning && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                        <span>Gönderim İlerlemesi</span>
-                        <strong>%{campaignProgress}</strong>
-                      </div>
-                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ width: `${campaignProgress}%`, height: '100%', background: '#25d366', transition: 'width 0.3s ease' }}></div>
-                      </div>
-                    </div>
-                  )}
+              {/* CRM Table */}
+              <div className="card">
+                <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Kişiler ve Abonelik Durumları ({customers.length})</span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button onClick={handleExportCSV} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                      📥 Dışa Aktar
+                    </button>
+                    <label className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', margin: 0 }}>
+                      📤 İçe Aktar
+                      <input type="file" accept=".csv" onChange={handleImportCSV} style={{ display: 'none' }} />
+                    </label>
+                    <button onClick={fetchCustomers} className="action-icon-btn"><RefreshCw size={14} /></button>
+                  </div>
+                </h3>
 
-                  <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                {loadingCrm ? (
+                  <div className="spinner"></div>
+                ) : customers.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>CRM rehberinde henüz kayıtlı müşteri yok.</div>
+                ) : (
+                  <div className="table-container">
+                    <table className="mgmt-table">
+                      <thead>
+                        <tr>
+                          <th>Müşteri Adı</th>
+                          <th>Telefon</th>
+                          <th style={{ textAlign: 'center' }}>Sipariş Sayısı</th>
+                          <th>Abonelik Durumu</th>
+                          <th style={{ textAlign: 'right' }}>İşlemler</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {customers.map(c => {
+                          const isActive = c.subscription_status !== 'cancelled';
+                          return (
+                            <tr key={c.id}>
+                              <td style={{ fontWeight: '600' }}>{c.name}</td>
+                              <td>{c.phone}</td>
+                              <td style={{ textAlign: 'center', fontWeight: '700' }}>{c.total_orders}</td>
+                              <td>
+                                <span 
+                                  className={`badge ${isActive ? 'badge-success' : 'badge-danger'}`}
+                                  style={{ 
+                                    background: isActive ? 'rgba(37, 211, 102, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                    color: isActive ? '#25d366' : '#ef4444',
+                                    border: `1px solid ${isActive ? 'rgba(37, 211, 102, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: '600'
+                                  }}
+                                >
+                                  {isActive ? 'Devam Ediyor' : 'İptal Edildi'}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                <button 
+                                  onClick={() => handleToggleSubscription(c.id, c.subscription_status)}
+                                  className="btn"
+                                  style={{ 
+                                    padding: '4px 10px', 
+                                    fontSize: '11px', 
+                                    background: isActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(37, 211, 102, 0.1)',
+                                    border: `1px solid ${isActive ? 'rgba(239, 68, 68, 0.2)' : 'rgba(37, 211, 102, 0.2)'}`,
+                                    color: isActive ? '#ef4444' : '#25d366',
+                                    cursor: 'pointer',
+                                    borderRadius: '4px'
+                                  }}
+                                >
+                                  {isActive ? 'Aboneliği İptal Et' : 'Aboneliği Başlat'}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Tab 2: Campaign Send Planner */}
+          {waSubTab === 'campaign' && (
+            <div className="card" style={{ maxWidth: '600px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Send size={18} /> Yeni WhatsApp Kampanyası Oluştur
+              </h3>
+              
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label>Hedef Müşteri Segmenti</label>
+                <select 
+                  className="form-control form-select" 
+                  value={campaignSegment} 
+                  onChange={(e) => setCampaignSegment(e.target.value)}
+                >
+                  <option value="all">Tüm CRM Müşterileri ({customers.length})</option>
+                  <option value="active">Devam Eden Aboneler (Aktif) ({customers.filter(c => c.subscription_status !== 'cancelled').length})</option>
+                  <option value="cancelled">Aboneliği İptal Olanlar ({customers.filter(c => c.subscription_status === 'cancelled').length})</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label>Kampanya Mesajı İçeriği</label>
+                <textarea 
+                  className="form-control" 
+                  rows="5" 
+                  value={campaignMessage} 
+                  onChange={(e) => setCampaignMessage(e.target.value)}
+                  placeholder="Müşterilere gidecek kampanya yazısı..."
+                />
+                <small style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
+                  İpucu: Kişiselleştirmek için <strong>{'{customer_name}'}</strong> etiketini kullanabilirsiniz.
+                </small>
+              </div>
+
+              <button 
+                className="btn btn-primary" 
+                disabled={campaignRunning} 
+                onClick={handleStartCampaign}
+                style={{ width: '100%', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', background: '#0284c7', borderColor: '#0284c7' }}
+              >
+                <Play size={16} /> {campaignRunning ? 'Kampanya Gönderiliyor...' : 'Kampanyayı Başlat (WhatsApp API)'}
+              </button>
+            </div>
+          )}
+
+          {/* Tab 3: Delivery Logs & Report */}
+          {waSubTab === 'logs' && (
+            <div className="card">
+              <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>Kampanya Gönderim Raporları & Kayıtları</h3>
+              
+              {campaignRunning && (
+                <div style={{ marginBottom: '24px', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--panel-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
+                    <span>Gönderim İlerlemesi</span>
+                    <strong>%{campaignProgress}</strong>
+                  </div>
+                  <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${campaignProgress}%`, height: '100%', background: '#25d366', transition: 'width 0.3s ease' }}></div>
+                  </div>
+                </div>
+              )}
+
+              {campaignLogs.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  Henüz tamamlanmış veya aktif bir kampanya gönderim kaydı bulunamadı.
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Toplam {campaignLogs.length} Gönderim Kaydı</span>
+                    {!campaignRunning && (
+                      <button onClick={() => setCampaignLogs([])} className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}>
+                        Kayıtları Temizle
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '400px', overflowY: 'auto' }}>
                     {campaignLogs.map(log => (
                       <div 
                         key={log.id} 
                         style={{ 
-                          padding: '10px', 
+                          padding: '12px', 
                           borderRadius: '8px', 
                           border: '1px solid var(--panel-border)', 
                           background: 'rgba(255,255,255,0.01)',
@@ -556,9 +810,9 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                       >
                         <div>
                           <strong style={{ fontSize: '13px', display: 'block' }}>{log.customer}</strong>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{log.phone} ➜ "{log.message_preview.substring(0, 45)}..."</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{log.phone} ➜ "{log.message_preview}"</span>
                         </div>
-                        <span style={{ fontSize: '11px', color: '#25d366', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '11px', color: '#25d366', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', shrink: 0 }}>
                           <CheckCircle2 size={13} /> {log.status}
                         </span>
                       </div>
@@ -566,9 +820,8 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                   </div>
                 </div>
               )}
-
             </div>
-          </div>
+          )}
         </>
       )}
 

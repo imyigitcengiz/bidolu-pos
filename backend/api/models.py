@@ -185,6 +185,7 @@ class RestaurantProfile(models.Model):
     ext_official_website_enabled = models.BooleanField(default=True)
     ext_crm_enabled = models.BooleanField(default=True)
     ext_whatsapp_enabled = models.BooleanField(default=False)
+    ext_live_courier_enabled = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
@@ -236,6 +237,7 @@ class Customer(models.Model):
     email = models.EmailField(blank=True, null=True)
     total_orders = models.IntegerField(default=0)
     last_order_date = models.DateField(blank=True, null=True)
+    subscription_status = models.CharField(max_length=30, default='active')
 
     def __str__(self):
         return f"{self.name} ({self.phone})"
@@ -243,8 +245,10 @@ class Customer(models.Model):
 class WhatsAppConfig(models.Model):
     api_key = models.CharField(max_length=255, blank=True, null=True)
     phone_number_id = models.CharField(max_length=100, blank=True, null=True)
-    is_auto_message_enabled = models.BooleanField(default=False)
+    is_auto_message_enabled = models.BooleanField(default=True)
     message_template = models.TextField(default="Merhaba {customer_name}, {order_id} nolu siparişiniz alınmıştır. Afiyet olsun!")
+    is_live_chat_enabled = models.BooleanField(default=False)
+    ask_admin_before_sending = models.BooleanField(default=True)
 
     def __str__(self):
         return f"WhatsApp Config - Enabled: {self.is_auto_message_enabled}"

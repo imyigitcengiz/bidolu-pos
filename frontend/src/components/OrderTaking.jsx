@@ -164,7 +164,12 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
       });
 
       if (res.ok) {
-        alert('Ödeme başarıyla kaydedildi, masa kapatıldı.');
+        const data = await res.json();
+        let successMsg = 'Ödeme başarıyla kaydedildi, masa kapatıldı.';
+        if (data.whatsapp_simulated) {
+          successMsg += `\n\n[WhatsApp API] Otomatik onay mesajı gönderildi:\nAlıcı: ${data.whatsapp_simulated.to}\nMesaj: "${data.whatsapp_simulated.message}"`;
+        }
+        alert(successMsg);
         setShowPaymentModal(false);
         onBack();
       } else {
