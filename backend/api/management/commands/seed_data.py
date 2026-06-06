@@ -131,7 +131,13 @@ class Command(BaseCommand):
             tax_number='3535061909',
             working_hours='10:00 - 23:00',
             active_plan='Growth',
-            plan_expiry=timezone.now().date() + timedelta(days=365)
+            plan_expiry=timezone.now().date() + timedelta(days=365),
+            website_slug='bidolu-kebap',
+            website_theme_color='#6366f1',
+            website_banner_text='En Lezzetli Kebaplar ve Lahmacunlar Bidolu\'da!',
+            website_enable_table_orders=True,
+            website_enable_delivery=True,
+            website_enable_takeaway=True
         )
 
         # 7. Seed Ingredients & Recipes

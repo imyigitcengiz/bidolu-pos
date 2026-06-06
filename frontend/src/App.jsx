@@ -14,9 +14,10 @@ import Expenses from './components/Expenses';
 import Couriers from './components/Couriers';
 import Reports from './components/Reports';
 import SettingsComponent from './components/Settings';
+import WebsiteBuilder from './components/WebsiteBuilder';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
-  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen 
+  ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe 
 } from 'lucide-react';
 
 function App() {
@@ -106,6 +107,8 @@ function App() {
         return <Reports />;
       case 'settings':
         return <SettingsComponent />;
+      case 'website':
+        return <WebsiteBuilder />;
       default:
         return <Dashboard />;
     }
@@ -139,6 +142,8 @@ function App() {
         return 'Raporlar';
       case 'settings':
         return 'Genel Ayarlar';
+      case 'website':
+        return 'Restoran Web Sitesi';
       default:
         return 'Bidolu POS';
     }
@@ -172,6 +177,8 @@ function App() {
         return 'Detaylı ciro dağılımları ve kâr-zarar analiz raporları';
       case 'settings':
         return 'Profil, restoran kimliği ve üyelik planı ayarları';
+      case 'website':
+        return 'QR menü, web sipariş teması ve karekod ayarları';
       default:
         return 'Restoran Yönetim Sistemi';
     }
@@ -288,6 +295,14 @@ function App() {
             >
               <PieChart size={18} />
               <span>Raporlar</span>
+            </li>
+            <li 
+              className={`nav-item ${currentTab === 'website' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('website'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <Globe size={18} />
+              <span>Web Sitesi (QR)</span>
             </li>
             <li 
               className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}

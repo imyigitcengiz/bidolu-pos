@@ -168,6 +168,12 @@ class RestaurantProfile(models.Model):
     working_hours = models.CharField(max_length=100, default='09:00 - 23:00')
     active_plan = models.CharField(max_length=50, default='Growth') # 'Starter', 'Growth', 'Enterprise'
     plan_expiry = models.DateField(blank=True, null=True)
+    website_slug = models.CharField(max_length=100, default='bidolu-restoran')
+    website_theme_color = models.CharField(max_length=30, default='#6366f1')
+    website_banner_text = models.CharField(max_length=255, default='Hoş Geldiniz!')
+    website_enable_table_orders = models.BooleanField(default=True)
+    website_enable_delivery = models.BooleanField(default=True)
+    website_enable_takeaway = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
