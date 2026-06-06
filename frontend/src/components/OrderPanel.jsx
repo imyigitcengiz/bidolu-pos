@@ -11,6 +11,50 @@ const PLATFORM_COLORS = {
   'WebSitesi': { bg: 'rgba(37, 99, 235, 0.15)', text: '#3b82f6', border: 'rgba(37, 99, 235, 0.3)' }
 };
 
+const renderPlatformLogo = (platformName) => {
+  switch (platformName) {
+    case 'Yemeksepeti':
+      return (
+        <svg viewBox="0 0 100 100" style={{ width: '20px', height: '20px', marginRight: '8px', borderRadius: '5px' }}>
+          <rect width="100" height="100" rx="22" fill="#e11b22" />
+          <path d="M50 20 C35 20, 25 35, 25 50 C25 65, 35 80, 50 80 C65 80, 75 65, 75 50 C75 40, 70 30, 60 25 C62 32, 60 40, 55 45 C50 50, 42 48, 42 40 C42 32, 48 27, 50 20 Z" fill="white" />
+        </svg>
+      );
+    case 'Getir':
+      return (
+        <svg viewBox="0 0 100 100" style={{ width: '20px', height: '20px', marginRight: '8px', borderRadius: '5px' }}>
+          <rect width="100" height="100" rx="22" fill="#5d38c6" />
+          <circle cx="50" cy="50" r="28" fill="#ffd200" />
+          <text x="50" y="58" fontSize="24" fontWeight="900" fill="#5d38c6" textAnchor="middle" fontFamily="sans-serif">g</text>
+        </svg>
+      );
+    case 'Trendyol Yemek':
+      return (
+        <svg viewBox="0 0 100 100" style={{ width: '20px', height: '20px', marginRight: '8px', borderRadius: '5px' }}>
+          <rect width="100" height="100" rx="22" fill="#f27a1a" />
+          <text x="50" y="66" fontSize="50" fontWeight="950" fill="white" textAnchor="middle" fontFamily="sans-serif">ty</text>
+        </svg>
+      );
+    case 'Migros Yemek':
+      return (
+        <svg viewBox="0 0 100 100" style={{ width: '20px', height: '20px', marginRight: '8px', borderRadius: '5px' }}>
+          <rect width="100" height="100" rx="22" fill="#ff6a00" />
+          <path d="M25 75 L38 25 L50 50 L62 25 L75 75" stroke="white" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <circle cx="50" cy="20" r="6" fill="#8bc53f" />
+        </svg>
+      );
+    default:
+      return (
+        <svg viewBox="0 0 100 100" style={{ width: '20px', height: '20px', marginRight: '8px', borderRadius: '5px' }}>
+          <rect width="100" height="100" rx="22" fill="#2563eb" />
+          <circle cx="50" cy="50" r="25" stroke="white" strokeWidth="5" fill="none" />
+          <line x1="50" y1="25" x2="50" y2="75" stroke="white" strokeWidth="5" />
+          <line x1="25" y1="50" x2="75" y2="50" stroke="white" strokeWidth="5" />
+        </svg>
+      );
+  }
+};
+
 export default function OrderPanel() {
   const [orders, setOrders] = useState([]);
   const [couriers, setCouriers] = useState([]);
@@ -242,20 +286,23 @@ export default function OrderPanel() {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span 
-                    style={{ 
-                      fontSize: '11px', 
-                      fontWeight: '700', 
-                      textTransform: 'uppercase', 
-                      color: branding.text,
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${branding.border}`
-                    }}
-                  >
-                    {order.table_name.replace(' Paket', '')}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    {renderPlatformLogo(order.table_name.replace(' Paket', ''))}
+                    <span 
+                      style={{ 
+                        fontSize: '11px', 
+                        fontWeight: '700', 
+                        textTransform: 'uppercase', 
+                        color: branding.text,
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${branding.border}`
+                      }}
+                    >
+                      {order.table_name.replace(' Paket', '')}
+                    </span>
+                  </div>
                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                     #{order.id} | {new Date(order.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                   </span>

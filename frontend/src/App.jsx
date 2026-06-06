@@ -20,10 +20,45 @@ import {
 } from 'lucide-react';
 
 function App() {
-  const [isLanding, setIsLanding] = useState(true);
-  const [currentTab, setCurrentTab] = useState('dashboard');
-  const [selectedTable, setSelectedTable] = useState(null);
-  const [activeOrder, setActiveOrder] = useState(null);
+  const [isLanding, setIsLanding] = useState(() => {
+    const saved = localStorage.getItem('isLanding');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [currentTab, setCurrentTab] = useState(() => {
+    return localStorage.getItem('currentTab') || 'dashboard';
+  });
+  const [selectedTable, setSelectedTable] = useState(() => {
+    const saved = localStorage.getItem('selectedTable');
+    return saved !== null ? JSON.parse(saved) : null;
+  });
+  const [activeOrder, setActiveOrder] = useState(() => {
+    const saved = localStorage.getItem('activeOrder');
+    return saved !== null ? JSON.parse(saved) : null;
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('isLanding', JSON.stringify(isLanding));
+  }, [isLanding]);
+
+  React.useEffect(() => {
+    localStorage.setItem('currentTab', currentTab);
+  }, [currentTab]);
+
+  React.useEffect(() => {
+    if (selectedTable) {
+      localStorage.setItem('selectedTable', JSON.stringify(selectedTable));
+    } else {
+      localStorage.removeItem('selectedTable');
+    }
+  }, [selectedTable]);
+
+  React.useEffect(() => {
+    if (activeOrder) {
+      localStorage.setItem('activeOrder', JSON.stringify(activeOrder));
+    } else {
+      localStorage.removeItem('activeOrder');
+    }
+  }, [activeOrder]);
 
   const handleSelectTable = (table, order) => {
     setSelectedTable(table);
