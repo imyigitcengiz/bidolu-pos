@@ -79,12 +79,25 @@ const UpgradePage = ({ requiredPlan, featureName, currentPlan, setCurrentTab }) 
 };
 
 function App() {
+  // URL → tab mapping
+  const getTabFromPath = () => {
+    const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
+    if (!path || path === '/') return null; // landing page
+    const validTabs = ['dashboard','tables','order-taking','order-panel','kitchen','menu',
+      'recipe-stok','cash-register','personnel','crm','expenses','couriers','reports',
+      'settings','qr-menu','official-website','extensions','profile','super-admin'];
+    return validTabs.includes(path) ? path : null;
+  };
+
   const [isLanding, setIsLanding] = useState(() => {
+    const pathTab = getTabFromPath();
+    if (pathTab) return false; // URL has a valid tab path → skip landing
     const saved = localStorage.getItem('isLanding');
     return saved !== null ? JSON.parse(saved) : true;
   });
   const [currentTab, setCurrentTab] = useState(() => {
-    return localStorage.getItem('currentTab') || 'dashboard';
+    const pathTab = getTabFromPath();
+    return pathTab || localStorage.getItem('currentTab') || 'dashboard';
   });
   const [selectedTable, setSelectedTable] = useState(() => {
     const saved = localStorage.getItem('selectedTable');
@@ -278,11 +291,36 @@ function App() {
 
   React.useEffect(() => {
     localStorage.setItem('isLanding', JSON.stringify(isLanding));
+    if (isLanding) {
+      window.history.replaceState(null, '', '/');
+    }
   }, [isLanding]);
 
+  // Sync URL when tab changes
   React.useEffect(() => {
     localStorage.setItem('currentTab', currentTab);
-  }, [currentTab]);
+    if (!isLanding) {
+      const newPath = `/${currentTab}`;
+      if (window.location.pathname !== newPath) {
+        window.history.pushState({ tab: currentTab }, '', newPath);
+      }
+    }
+  }, [currentTab, isLanding]);
+
+  // Handle browser back/forward buttons
+  React.useEffect(() => {
+    const handlePopState = (e) => {
+      const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
+      if (!path || path === '/') {
+        setIsLanding(true);
+      } else {
+        setIsLanding(false);
+        setCurrentTab(path);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   React.useEffect(() => {
     if (selectedTable) {
