@@ -15,44 +15,7 @@ const hasRequiredPlan = (currentPlan, requiredPlan) => {
   return current >= required;
 };
 
-const LockOverlay = ({ requiredPlan, setCurrentTab }) => {
-  return (
-    <div style={{
-      position: 'absolute',
-      top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(15, 23, 42, 0.85)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: '16px',
-      textAlign: 'center',
-      zIndex: 10
-    }}>
-      <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
-        <Lock size={16} />
-      </div>
-      <span style={{ fontSize: '10px', fontWeight: '800', color: requiredPlan === 'Enterprise' ? '#f59e0b' : '#6366f1', background: requiredPlan === 'Enterprise' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(99, 102, 241, 0.15)', padding: '2px 8px', borderRadius: '12px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        {requiredPlan === 'Enterprise' ? 'Kurumsal Plan' : 'Büyüyen Plan'}
-      </span>
-      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '0 0 10px 0', lineHeight: '1.4' }}>
-        Bu özellik için planınızı yükseltmeniz gerekir.
-      </p>
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          localStorage.setItem('settingsSubTab', 'plans');
-          setCurrentTab('settings');
-        }}
-        className="btn btn-primary"
-        style={{ padding: '4px 12px', fontSize: '11px', height: '28px', background: requiredPlan === 'Enterprise' ? '#f85f34' : 'var(--primary)', borderColor: requiredPlan === 'Enterprise' ? '#f85f34' : 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        Planı Yükselt
-      </button>
-    </div>
-  );
-};
+
 
 export default function Extensions({ setCurrentTab, activeSubView, setActiveSubView, restaurantProfile, fetchRestaurantProfile }) {
   const handleToggleExtension = async (field, value) => {
@@ -425,13 +388,13 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
             
             {/* QR Menu Card */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', filter: !hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? 'blur(1px)' : 'none', opacity: !hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? 0.35 : 1, pointerEvents: !hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? 'none' : 'auto' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <QrCode size={22} />
-                    </div>
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <QrCode size={22} />
+                  </div>
+                  {hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '11px', color: restaurantProfile.ext_qr_menu_enabled ? 'var(--success)' : 'var(--text-muted)' }}>
                         {restaurantProfile.ext_qr_menu_enabled ? 'Açık' : 'Kapalı'}
@@ -443,10 +406,16 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                         style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                       />
                     </div>
-                  </div>
-                  <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>QR Menü</h4>
-                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Masalardan veya adresten QR kod okutarak sipariş alın, menü temalarını yönetin.</p>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>
+                      <Lock size={12} /> Büyüyen Plan
+                    </div>
+                  )}
                 </div>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>QR Menü</h4>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Masalardan veya adresten QR kod okutarak sipariş alın, menü temalarını yönetin.</p>
+              </div>
+              {hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? (
                 <button 
                   onClick={() => setCurrentTab('qr-menu')} 
                   disabled={!restaurantProfile.ext_qr_menu_enabled}
@@ -455,20 +424,28 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                 >
                   {restaurantProfile.ext_qr_menu_enabled ? 'Yönetime Git' : 'Aktif Etmek İçin Açın'}
                 </button>
-              </div>
-              {!hasRequiredPlan(restaurantProfile.active_plan, 'Growth') && (
-                <LockOverlay requiredPlan="Growth" setCurrentTab={setCurrentTab} />
+              ) : (
+                <button 
+                  onClick={() => {
+                    localStorage.setItem('settingsSubTab', 'plans');
+                    setCurrentTab('settings');
+                  }}
+                  className="btn btn-primary" 
+                  style={{ width: '100%', padding: '8px', display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}
+                >
+                  Planı Yükselt
+                </button>
               )}
             </div>
 
             {/* Official Website Card */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', filter: !hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? 'blur(1px)' : 'none', opacity: !hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? 0.35 : 1, pointerEvents: !hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? 'none' : 'auto' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Globe size={22} />
-                    </div>
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Globe size={22} />
+                  </div>
+                  {hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '11px', color: restaurantProfile.ext_official_website_enabled ? 'var(--success)' : 'var(--text-muted)' }}>
                         {restaurantProfile.ext_official_website_enabled ? 'Açık' : 'Kapalı'}
@@ -480,10 +457,16 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                         style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                       />
                     </div>
-                  </div>
-                  <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Tanıtım Web Sitesi</h4>
-                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Kendi özel alan adınız, tasarımlarınız, rezervasyon formu ve hikayenizle web sitenizi oluşturun.</p>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>
+                      <Lock size={12} /> Büyüyen Plan
+                    </div>
+                  )}
                 </div>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Tanıtım Web Sitesi</h4>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Kendi özel alan adınız, tasarımlarınız, rezervasyon formu ve hikayenizle web sitenizi oluşturun.</p>
+              </div>
+              {hasRequiredPlan(restaurantProfile.active_plan, 'Growth') ? (
                 <button 
                   onClick={() => setCurrentTab('official-website')} 
                   disabled={!restaurantProfile.ext_official_website_enabled}
@@ -492,20 +475,28 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                 >
                   {restaurantProfile.ext_official_website_enabled ? 'Yönetime Git' : 'Aktif Etmek İçin Açın'}
                 </button>
-              </div>
-              {!hasRequiredPlan(restaurantProfile.active_plan, 'Growth') && (
-                <LockOverlay requiredPlan="Growth" setCurrentTab={setCurrentTab} />
+              ) : (
+                <button 
+                  onClick={() => {
+                    localStorage.setItem('settingsSubTab', 'plans');
+                    setCurrentTab('settings');
+                  }}
+                  className="btn btn-primary" 
+                  style={{ width: '100%', padding: '8px', display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}
+                >
+                  Planı Yükselt
+                </button>
               )}
             </div>
 
             {/* WhatsApp API Card */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', filter: !hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? 'blur(1px)' : 'none', opacity: !hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? 0.35 : 1, pointerEvents: !hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? 'none' : 'auto' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <div style={{ background: 'rgba(37, 211, 102, 0.1)', color: '#25d366', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <MessageSquare size={22} />
-                    </div>
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(37, 211, 102, 0.1)', color: '#25d366', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MessageSquare size={22} />
+                  </div>
+                  {hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '11px', color: restaurantProfile.ext_whatsapp_enabled ? 'var(--success)' : 'var(--text-muted)' }}>
                         {restaurantProfile.ext_whatsapp_enabled ? 'Açık' : 'Kapalı'}
@@ -517,10 +508,16 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                         style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                       />
                     </div>
-                  </div>
-                  <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>WhatsApp Kampanyaları</h4>
-                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Müşteri gruplarına ve abonelere özel WhatsApp mesaj şablonları ile toplu kampanya bildirimleri gönderin.</p>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>
+                      <Lock size={12} /> Kurumsal Plan
+                    </div>
+                  )}
                 </div>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>WhatsApp Kampanyaları</h4>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Müşteri gruplarına ve abonelere özel WhatsApp mesaj şablonları ile toplu kampanya bildirimleri gönderin.</p>
+              </div>
+              {hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? (
                 <button 
                   onClick={() => setActiveSubView('whatsapp')} 
                   disabled={!restaurantProfile.ext_whatsapp_enabled}
@@ -529,27 +526,41 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                 >
                   {restaurantProfile.ext_whatsapp_enabled ? 'WhatsApp Kampanyalarını Yönet' : 'Aktif Etmek İçin Açın'}
                 </button>
-              </div>
-              {!hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') && (
-                <LockOverlay requiredPlan="Enterprise" setCurrentTab={setCurrentTab} />
+              ) : (
+                <button 
+                  onClick={() => {
+                    localStorage.setItem('settingsSubTab', 'plans');
+                    setCurrentTab('settings');
+                  }}
+                  className="btn btn-primary" 
+                  style={{ width: '100%', padding: '8px', display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}
+                >
+                  Planı Yükselt
+                </button>
               )}
             </div>
 
             {/* Live Courier Tracking Card */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', filter: !hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? 'blur(1px)' : 'none', opacity: !hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? 0.35 : 1, pointerEvents: !hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? 'none' : 'auto' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <div style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <MapPin size={22} />
-                    </div>
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '240px', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(0,0,0,0) 100%)', border: '1px solid var(--panel-border)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MapPin size={22} />
+                  </div>
+                  {hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? (
                     <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
                       YAKINDA
                     </span>
-                  </div>
-                  <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Live Kurye Lokasyon Takibi</h4>
-                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Teslimattaki kuryelerin canlı konumlarını, sipariş rotalarını ve durumlarını anlık haritadan izleyin.</p>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>
+                      <Lock size={12} /> Kurumsal Plan
+                    </div>
+                  )}
                 </div>
+                <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Live Kurye Lokasyon Takibi</h4>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>Teslimattaki kuryelerin canlı konumlarını, sipariş rotalarını ve durumlarını anlık haritadan izleyin.</p>
+              </div>
+              {hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') ? (
                 <button 
                   disabled={true}
                   className="btn btn-secondary" 
@@ -557,9 +568,17 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
                 >
                   Yakında Hizmete Girecektir
                 </button>
-              </div>
-              {!hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') && (
-                <LockOverlay requiredPlan="Enterprise" setCurrentTab={setCurrentTab} />
+              ) : (
+                <button 
+                  onClick={() => {
+                    localStorage.setItem('settingsSubTab', 'plans');
+                    setCurrentTab('settings');
+                  }}
+                  className="btn btn-primary" 
+                  style={{ width: '100%', padding: '8px', display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}
+                >
+                  Planı Yükselt
+                </button>
               )}
             </div>
 
