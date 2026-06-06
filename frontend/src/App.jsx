@@ -20,6 +20,7 @@ import Extensions from './components/Extensions';
 import AuthPage from './components/AuthPage';
 import ProfilePage from './components/ProfilePage';
 import SuperAdminPanel from './components/SuperAdminPanel';
+import SuperDashboard from './components/SuperDashboard';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
   ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode, Puzzle, MessageSquare,
@@ -85,7 +86,7 @@ function App() {
     if (!path || path === '/') return null; // landing page
     const validTabs = ['dashboard','tables','order-taking','order-panel','kitchen','menu',
       'recipe-stok','cash-register','personnel','crm','expenses','couriers','reports',
-      'settings','qr-menu','official-website','extensions','profile','super-admin'];
+      'settings','qr-menu','official-website','extensions','profile','super-admin','super-dash'];
     return validTabs.includes(path) ? path : null;
   };
 
@@ -117,6 +118,7 @@ function App() {
     try { return JSON.parse(localStorage.getItem('auth_user')); } catch { return null; }
   });
   const [authLoading, setAuthLoading] = useState(true);
+  const [originalSuperToken, setOriginalSuperToken] = useState(null); // For impersonation "return" feature
 
   // Close mobile menu when tab changes
   useEffect(() => {
@@ -156,6 +158,49 @@ function App() {
     setCurrentUser(user);
     localStorage.setItem('auth_token', token);
     localStorage.setItem('auth_user', JSON.stringify(user));
+    // Redirect super_admin to super-dash by default
+    if (user?.role === 'super_admin') {
+      setCurrentTab('super-dash');
+    } else {
+      setCurrentTab('dashboard');
+    }
+  };
+
+  // ── Impersonation ──
+  const handleImpersonate = (targetToken, targetUser) => {
+    // Store original super admin session
+    setOriginalSuperToken(authToken);
+    localStorage.setItem('original_super_token', authToken);
+    localStorage.setItem('original_super_user', localStorage.getItem('auth_user'));
+    // Switch to target user
+    setAuthToken(targetToken);
+    setCurrentUser(targetUser);
+    localStorage.setItem('auth_token', targetToken);
+    localStorage.setItem('auth_user', JSON.stringify(targetUser));
+    setCurrentTab('dashboard');
+  };
+
+  const handleReturnToSuperAdmin = async () => {
+    const origToken = originalSuperToken || localStorage.getItem('original_super_token');
+    if (!origToken) return;
+    try {
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/auth/me/`, {
+        headers: { 'Authorization': `Token ${origToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuthToken(origToken);
+        setCurrentUser(data.user);
+        localStorage.setItem('auth_token', origToken);
+        localStorage.setItem('auth_user', JSON.stringify(data.user));
+        setCurrentTab('super-dash');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setOriginalSuperToken(null);
+    localStorage.removeItem('original_super_token');
+    localStorage.removeItem('original_super_user');
   };
 
   const handleLogout = () => {
@@ -166,8 +211,11 @@ function App() {
     }).catch(() => {});
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('original_super_token');
+    localStorage.removeItem('original_super_user');
     setAuthToken(null);
     setCurrentUser(null);
+    setOriginalSuperToken(null);
     setCurrentTab('dashboard');
   };
 
@@ -202,7 +250,8 @@ function App() {
     { tab: 'official-website', label: 'Web Sitesi', desc: 'Kurumsal tanıtım sitesi', icon: '🌐', keywords: 'web site website internet tanıtım' },
     { tab: 'extensions', label: 'Eklentiler', desc: 'WhatsApp API ve pazaryeri', icon: '🧩', keywords: 'eklenti extension whatsapp marketplace' },
     { tab: 'profile', label: 'Profilim', desc: 'Kişisel bilgiler ve şifre', icon: '👤', keywords: 'profil hesap şifre email' },
-    { tab: 'super-admin', label: 'Sistem Yönetimi', desc: 'Kullanıcı ve rol yönetimi', icon: '🛡️', keywords: 'admin sistem kullanıcı rol yetki', role: 'super_admin' },
+    { tab: 'super-admin', label: 'Kullanıcı Yönetimi', desc: 'Kullanıcı ve rol yönetimi', icon: '🛡️', keywords: 'admin sistem kullanıcı rol yetki', role: 'super_admin' },
+    { tab: 'super-dash', label: 'Süper Yönetim', desc: 'Markalar, planlar ve platform yönetimi', icon: '🏢', keywords: 'süper admin marka brand plan platform impersonate', role: 'super_admin' },
     { action: 'logout', label: 'Çıkış Yap', desc: 'Oturumu sonlandır', icon: '🚪', keywords: 'çıkış logout oturum' },
     { action: 'landing', label: 'Tanıtım Sayfası', desc: 'Ana tanıtım sayfasına dön', icon: '🏠', keywords: 'tanıtım landing ana sayfa' },
   ];
@@ -601,6 +650,8 @@ function App() {
         return <ProfilePage authToken={authToken} currentUser={currentUser} onProfileUpdate={handleProfileUpdate} />;
       case 'super-admin':
         return <SuperAdminPanel authToken={authToken} />;
+      case 'super-dash':
+        return <SuperDashboard authToken={authToken} onImpersonate={handleImpersonate} />;
       default:
         return <Dashboard />;
     }
@@ -646,6 +697,8 @@ function App() {
         return 'Profilim';
       case 'super-admin':
         return 'Sistem Yönetimi';
+      case 'super-dash':
+        return 'Süper Yönetim Paneli';
       default:
         return 'Bidolu POS';
     }
@@ -691,6 +744,8 @@ function App() {
         return 'Kişisel bilgiler, şifre değişikliği ve hesap ayarları';
       case 'super-admin':
         return 'Kullanıcı hesapları, roller ve erişim yetkileri yönetimi';
+      case 'super-dash':
+        return 'Tüm markalar, kullanıcılar ve platform yönetimi';
       default:
         return 'Restoran Yönetim Sistemi';
     }
@@ -914,16 +969,41 @@ function App() {
             <span>{currentUser?.first_name || currentUser?.username || 'Profil'}</span>
           </div>
 
-          {/* Super Admin Panel — only for super_admin role */}
+          {/* Super Admin — only for super_admin role */}
           {currentUser?.role === 'super_admin' && (
-            <li 
-              className={`nav-item ${currentTab === 'super-admin' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('super-admin'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
+            <>
+              <li 
+                className={`nav-item ${currentTab === 'super-dash' ? 'active' : ''}`}
+                onClick={() => { setCurrentTab('super-dash'); setSelectedTable(null); }}
+                style={{ padding: '10px 12px', fontSize: '13px' }}
+              >
+                <ShieldAlert size={18} />
+                <span>Süper Yönetim</span>
+              </li>
+              <li 
+                className={`nav-item ${currentTab === 'super-admin' ? 'active' : ''}`}
+                onClick={() => { setCurrentTab('super-admin'); setSelectedTable(null); }}
+                style={{ padding: '10px 12px', fontSize: '12px', opacity: 0.7 }}
+              >
+                <Users size={16} />
+                <span>Kullanıcı Yönetimi</span>
+              </li>
+            </>
+          )}
+
+          {/* Return to Super Admin — when impersonating */}
+          {(originalSuperToken || localStorage.getItem('original_super_token')) && (
+            <button
+              onClick={handleReturnToSuperAdmin}
+              style={{
+                width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px',
+                justifyContent: 'center', alignItems: 'center', marginTop: '4px',
+                background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)',
+                borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit',
+              }}
             >
-              <ShieldAlert size={18} />
-              <span>Sistem Yönetimi</span>
-            </li>
+              <ShieldAlert size={14} /> Süper Admin'e Dön
+            </button>
           )}
 
           <button 

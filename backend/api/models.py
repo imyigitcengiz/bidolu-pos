@@ -4,6 +4,25 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 
+class Brand(models.Model):
+    """Multi-tenant brand/store model. Each registered user creates a brand."""
+    PLAN_CHOICES = [
+        ('starter', 'Starter'),
+        ('growth', 'Growth'),
+        ('enterprise', 'Enterprise'),
+    ]
+    name = models.CharField(max_length=150)
+    slug = models.SlugField(unique=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_brands')
+    plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default='starter')
+    plan_expiry = models.DateField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.get_plan_display()})"
+
+
 class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('super_admin', 'Süper Yönetici'),
@@ -16,6 +35,7 @@ class UserProfile(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='staff')
     phone = models.CharField(max_length=20, blank=True, null=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, blank=True, null=True, related_name='members')
 
     def __str__(self):
         return f"{self.user.username} ({self.get_role_display()})"

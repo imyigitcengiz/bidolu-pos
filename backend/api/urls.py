@@ -10,8 +10,9 @@ from .views import (
     LowStockView, ReportStatsView,
 )
 from .auth_views import (
-    login_view, register_view, logout_view, me_view,
+    login_view, public_register_view, register_view, logout_view, me_view,
     user_list_view, user_detail_view, seed_super_admin,
+    impersonate_view, brand_list_view, brand_detail_view, super_admin_stats_view,
 )
 
 router = DefaultRouter()
@@ -44,11 +45,17 @@ urlpatterns = [
     path('report-stats/', ReportStatsView.as_view(), name='report-stats'),
     # Auth endpoints
     path('auth/login/', login_view, name='auth-login'),
-    path('auth/register/', register_view, name='auth-register'),
+    path('auth/register/', public_register_view, name='auth-public-register'),
+    path('auth/register-staff/', register_view, name='auth-register-staff'),
     path('auth/logout/', logout_view, name='auth-logout'),
     path('auth/me/', me_view, name='auth-me'),
     path('auth/users/', user_list_view, name='auth-users'),
     path('auth/users/<int:user_id>/', user_detail_view, name='auth-user-detail'),
+    path('auth/users/<int:user_id>/impersonate/', impersonate_view, name='auth-impersonate'),
     path('auth/seed-super-admin/', seed_super_admin, name='auth-seed'),
+    # Brand endpoints
+    path('auth/brands/', brand_list_view, name='auth-brands'),
+    path('auth/brands/<int:brand_id>/', brand_detail_view, name='auth-brand-detail'),
+    path('auth/super-stats/', super_admin_stats_view, name='auth-super-stats'),
 ]
 
