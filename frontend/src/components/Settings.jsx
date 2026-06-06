@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useResponsive } from '../hooks/useResponsive';
 import { Settings, Shield, Award, Check, Clock, Edit3, ArrowRight, User, MessageSquare, Save } from 'lucide-react';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
@@ -59,6 +60,7 @@ const PLANS = [
 ];
 
 export default function SettingsComponent({ fetchRestaurantProfile: parentFetchProfile }) {
+  const { isMobile } = useResponsive();
   const [activeSubTab, setActiveSubTab] = useState(() => {
     const saved = localStorage.getItem('settingsSubTab');
     if (saved) {
@@ -243,7 +245,7 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '24px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 3fr', gap: isMobile ? '16px' : '24px' }}>
       
       {/* Sidebar Sub Tabs */}
       <div className="card" style={{ height: 'fit-content' }}>
@@ -290,7 +292,7 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
             {activeSubTab === 'restaurant' && (
               <div>
                 <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>Restoran Kimliği & Ayarları</h3>
-                <form onSubmit={handleSaveRestaurant} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <form onSubmit={handleSaveRestaurant} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
                   <div className="form-group" style={{ gridColumn: 'span 2' }}>
                     <label>Restoran Adı *</label>
                     <input type="text" className="form-control" value={resName} onChange={(e) => setResName(e.target.value)} required />
@@ -326,7 +328,7 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
             {activeSubTab === 'profile' && (
               <div>
                 <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>Profil & Güvenlik Ayarları</h3>
-                <form onSubmit={handleSaveUser} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '500px' }}>
+                <form onSubmit={handleSaveUser} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: isMobile ? '100%' : '500px' }}>
                   <div className="form-group">
                     <label>Kullanıcı Adı</label>
                     <input type="text" className="form-control" value={username} onChange={(e) => setUsername(e.target.value)} required />
@@ -429,7 +431,7 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
                 {loadingWa ? (
                   <div className="spinner"></div>
                 ) : (
-                  <form onSubmit={handleSaveWhatsAppConfig} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '600px' }}>
+                  <form onSubmit={handleSaveWhatsAppConfig} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: isMobile ? '100%' : '600px' }}>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '-10px', marginBottom: '4px', lineHeight: '1.4' }}>
                       💡 Bu entegrasyon müşteri bildirimleri için kullanılabilir.
                     </p>

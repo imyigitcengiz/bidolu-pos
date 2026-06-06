@@ -17,10 +17,13 @@ import SettingsComponent from './components/Settings';
 import WebsiteBuilder from './components/WebsiteBuilder';
 import OfficialWebsite from './components/OfficialWebsite';
 import Extensions from './components/Extensions';
+import AuthPage from './components/AuthPage';
+import ProfilePage from './components/ProfilePage';
+import SuperAdminPanel from './components/SuperAdminPanel';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
   ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode, Puzzle, MessageSquare,
-  Contact, Lock, Menu, X
+  Contact, Lock, Menu, X, LogOut, UserCircle, ShieldAlert
 } from 'lucide-react';
 
 const planLevels = {
@@ -95,10 +98,70 @@ function App() {
   const [extensionsSubView, setExtensionsSubView] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // ── Auth state ──
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('auth_token') || null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('auth_user')); } catch { return null; }
+  });
+  const [authLoading, setAuthLoading] = useState(true);
+
   // Close mobile menu when tab changes
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [currentTab]);
+
+  // ── Validate token on app load ──
+  useEffect(() => {
+    const validateToken = async () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) { setAuthLoading(false); return; }
+      try {
+        const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/auth/me/`, {
+          headers: { 'Authorization': `Token ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentUser(data.user);
+          setAuthToken(token);
+        } else {
+          // Token invalid
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+          setAuthToken(null);
+          setCurrentUser(null);
+        }
+      } catch {
+        // Network error — keep existing state
+      }
+      setAuthLoading(false);
+    };
+    validateToken();
+  }, []);
+
+  const handleLogin = (token, user) => {
+    setAuthToken(token);
+    setCurrentUser(user);
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem('auth_user', JSON.stringify(user));
+  };
+
+  const handleLogout = () => {
+    // Call logout API
+    fetch(`${(import.meta.env.VITE_API_URL || '')}/api/auth/logout/`, {
+      method: 'POST',
+      headers: { 'Authorization': `Token ${authToken}` },
+    }).catch(() => {});
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    setAuthToken(null);
+    setCurrentUser(null);
+    setCurrentTab('dashboard');
+  };
+
+  const handleProfileUpdate = (updatedUser) => {
+    setCurrentUser(updatedUser);
+    localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+  };
 
   // ── Notification & Low-stock state ──
   const [notifications, setNotifications] = useState([]);
@@ -319,6 +382,10 @@ function App() {
             fetchRestaurantProfile={fetchRestaurantProfile} 
           />
         );
+      case 'profile':
+        return <ProfilePage authToken={authToken} currentUser={currentUser} onProfileUpdate={handleProfileUpdate} />;
+      case 'super-admin':
+        return <SuperAdminPanel authToken={authToken} />;
       default:
         return <Dashboard />;
     }
@@ -360,6 +427,10 @@ function App() {
         return 'Tanıtım Web Sitesi';
       case 'extensions':
         return 'Eklentiler & Pazaryeri';
+      case 'profile':
+        return 'Profilim';
+      case 'super-admin':
+        return 'Sistem Yönetimi';
       default:
         return 'Bidolu POS';
     }
@@ -401,6 +472,10 @@ function App() {
         return 'Müşterileriniz için kurumsal tanıtım web sitesi';
       case 'extensions':
         return 'Müşteri CRM rehberi, WhatsApp API otomasyonları ve kampanyalar';
+      case 'profile':
+        return 'Kişisel bilgiler, şifre değişikliği ve hesap ayarları';
+      case 'super-admin':
+        return 'Kullanıcı hesapları, roller ve erişim yetkileri yönetimi';
       default:
         return 'Restoran Yönetim Sistemi';
     }
@@ -417,6 +492,20 @@ function App() {
   // If we are on the SaaS Landing Page
   if (isLanding) {
     return <LandingPage onLaunchApp={() => setIsLanding(false)} />;
+  }
+
+  // Auth loading screen
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)' }}>
+        <div className="spinner" />
+      </div>
+    );
+  }
+
+  // Not authenticated → show AuthPage
+  if (!authToken || !currentUser) {
+    return <AuthPage onLogin={handleLogin} />;
   }
 
   return (
@@ -599,14 +688,46 @@ function App() {
           </ul>
         </nav>
 
-        {/* Back to Landing Page CTA */}
-        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--panel-border)', paddingTop: '16px' }}>
+        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--panel-border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {/* User Profile mini card */}
+          <div 
+            className={`nav-item ${currentTab === 'profile' ? 'active' : ''}`}
+            onClick={() => { setCurrentTab('profile'); setSelectedTable(null); }}
+            style={{ padding: '10px 12px', fontSize: '13px', cursor: 'pointer' }}
+          >
+            <UserCircle size={18} />
+            <span>{currentUser?.first_name || currentUser?.username || 'Profil'}</span>
+          </div>
+
+          {/* Super Admin Panel — only for super_admin role */}
+          {currentUser?.role === 'super_admin' && (
+            <li 
+              className={`nav-item ${currentTab === 'super-admin' ? 'active' : ''}`}
+              onClick={() => { setCurrentTab('super-admin'); setSelectedTable(null); }}
+              style={{ padding: '10px 12px', fontSize: '13px' }}
+            >
+              <ShieldAlert size={18} />
+              <span>Sistem Yönetimi</span>
+            </li>
+          )}
+
           <button 
             onClick={() => setIsLanding(true)} 
             className="btn btn-secondary" 
-            style={{ width: '100%', padding: '10px 14px', fontSize: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}
+            style={{ width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', marginTop: '4px' }}
           >
             <ArrowLeft size={14} /> Tanıtım Sayfası
+          </button>
+
+          <button 
+            onClick={handleLogout} 
+            style={{ 
+              width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center',
+              background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)',
+              borderRadius: '10px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s'
+            }}
+          >
+            <LogOut size={14} /> Çıkış Yap
           </button>
         </div>
       </aside>

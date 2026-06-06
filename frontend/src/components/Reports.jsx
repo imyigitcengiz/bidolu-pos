@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useResponsive } from '../hooks/useResponsive';
 import { TrendingUp, Award, DollarSign, Activity, FileText, ShoppingBag } from 'lucide-react';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function Reports() {
+  const { isMobile } = useResponsive();
   const [sales, setSales] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -79,13 +81,13 @@ export default function Reports() {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '24px' }}>
       
       {/* Cards summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
         <div className="card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0.01) 100%)' }}>
           <h4 style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Brüt Ciro (Satışlar)</h4>
-          <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--success)', marginTop: '8px' }}>
+          <h2 style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: '800', color: 'var(--success)', marginTop: '8px' }}>
             {totalSalesRevenue.toLocaleString('tr-TR')} ₺
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Tüm tamamlanan siparişler</span>
@@ -93,7 +95,7 @@ export default function Reports() {
 
         <div className="card" style={{ background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.06) 0%, rgba(244, 63, 94, 0.01) 100%)' }}>
           <h4 style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Toplam Gider</h4>
-          <h2 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--danger)', marginTop: '8px' }}>
+          <h2 style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: '800', color: 'var(--danger)', marginTop: '8px' }}>
             {totalExpenseAmt.toLocaleString('tr-TR')} ₺
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Maaşlar, faturalar ve malzeme alımları</span>
@@ -101,7 +103,7 @@ export default function Reports() {
 
         <div className="card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(99, 102, 241, 0.01) 100%)' }}>
           <h4 style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Net Kâr / Zarar</h4>
-          <h2 style={{ fontSize: '28px', fontWeight: '800', color: netProfit >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: '8px' }}>
+          <h2 style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: '800', color: netProfit >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: '8px' }}>
             {netProfit.toLocaleString('tr-TR')} ₺
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Brüt Ciro - Toplam Gider</span>
@@ -109,7 +111,7 @@ export default function Reports() {
       </div>
 
       {/* Breakdown Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '16px' : '24px' }}>
         
         {/* Channel revenue breakdown */}
         <div className="card">

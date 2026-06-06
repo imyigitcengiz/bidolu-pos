@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, Trash2, Plus, Calendar, Filter } from 'lucide-react';
+import { useResponsive } from '../hooks/useResponsive';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function Expenses() {
+  const { isMobile } = useResponsive();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -76,7 +78,7 @@ export default function Expenses() {
   const totalExpense = filteredExpenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: isMobile ? '16px' : '24px' }}>
       
       {/* Expenses Log */}
       <div className="card">

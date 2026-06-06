@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Plus, Check, RefreshCw, DollarSign, Activity, MapPin, Map, Navigation, Compass } from 'lucide-react';
+import { useResponsive } from '../hooks/useResponsive';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function Couriers({ restaurantProfile }) {
+  const { isMobile } = useResponsive();
   const [couriers, setCouriers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -212,7 +214,7 @@ export default function Couriers({ restaurantProfile }) {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '24px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1.2fr', gap: isMobile ? '16px' : '24px' }}>
       
       {/* Couriers List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -459,7 +461,7 @@ export default function Couriers({ restaurantProfile }) {
           {loading ? (
             <div className="spinner"></div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
               {couriers.map(c => (
                 <div key={c.id} style={{ padding: '16px', border: '1px solid var(--panel-border)', borderRadius: '12px', background: 'rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

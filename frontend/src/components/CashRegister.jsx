@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, ArrowUpRight, ArrowDownLeft, Plus, DollarSign } from 'lucide-react';
+import { useResponsive } from '../hooks/useResponsive';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function CashRegister() {
+  const { isMobile } = useResponsive();
   const [registers, setRegisters] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -124,7 +126,7 @@ export default function CashRegister() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: isMobile ? '16px' : '24px' }}>
       
       {/* Registers List Sidebar */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -263,7 +265,7 @@ export default function CashRegister() {
             </div>
           </>
         ) : (
-          <div className="card" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+          <div className="card" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: isMobile ? '24px' : '60px', color: 'var(--text-muted)' }}>
             Lütfen sol menüden bir Kasa seçin veya yeni bir Kasa oluşturun.
           </div>
         )}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Globe, Save, Monitor, Tablet, Smartphone, ExternalLink, Calendar, Eye, Edit3, Check, AtSign, Users, Image, ToggleLeft, ToggleRight, Type, Link, ChevronUp, ChevronDown, Trash2, Plus, ArrowLeft, Star, Settings, Trash, Clock, MessageSquare, Lock, Unlock, Layers, Sparkles, BookOpen, UtensilsCrossed, BarChart3, Megaphone, CalendarCheck, Puzzle, Search, Grid3X3, ImagePlus, Quote, MapPin, Mail, Hash, Minus, GripVertical, ChevronRight, Play, Zap, Award, Target, HeartHandshake, Share2, ListOrdered, Columns, SeparatorHorizontal, Code2, HelpCircle, Building2, MousePointerClick } from 'lucide-react';
+import { useResponsive } from '../hooks/useResponsive';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
@@ -915,6 +916,7 @@ function WebsitePreview({
 }
 
 export default function OfficialWebsite() {
+  const { isMobile } = useResponsive();
   const [profileId, setProfileId] = useState(null);
   const [resName, setResName] = useState('');
   const [domain, setDomain] = useState('');
@@ -3955,7 +3957,7 @@ export default function OfficialWebsite() {
   if (loading) return <div className="spinner" style={{ margin: '60px auto' }} />;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '24px', alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '380px 1fr', gap: isMobile ? '16px' : '24px', alignItems: 'start' }}>
 
       {/* ─── LEFT PANEL: Editor ─── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -4144,40 +4146,69 @@ export default function OfficialWebsite() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'sticky', top: '24px' }}>
 
         {/* Device switcher toolbar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Eye size={15} style={{ color: 'var(--primary)' }} />
             <span style={{ fontSize: '13px', fontWeight: '700' }}>Canlı Önizleme</span>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'rgba(99,102,241,0.1)', padding: '2px 7px', borderRadius: '10px' }}>Anlık güncelleniyor</span>
           </div>
-          <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}>
-            {Object.entries(DEVICE_CONFIGS).map(([key, cfg]) => {
-              const Icon = cfg.icon;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setPreviewDevice(key)}
-                  title={cfg.label}
-                  style={{
-                    padding: '6px 10px',
-                    borderRadius: '7px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    background: previewDevice === key ? 'var(--primary)' : 'transparent',
-                    color: previewDevice === key ? '#fff' : 'var(--text-muted)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  <Icon size={13} /> {cfg.label}
-                </button>
-              );
-            })}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid var(--panel-border)' }}>
+              {Object.entries(DEVICE_CONFIGS).map(([key, cfg]) => {
+                const Icon = cfg.icon;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setPreviewDevice(key)}
+                    title={cfg.label}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: '7px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: previewDevice === key ? 'var(--primary)' : 'transparent',
+                      color: previewDevice === key ? '#fff' : 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <Icon size={13} /> {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Open in new tab button */}
+            <button
+              type="button"
+              onClick={() => {
+                const baseUrl = (import.meta.env.VITE_API_URL || '');
+                const siteSlug = domain || 'site';
+                window.open(`${baseUrl}/w/${siteSlug}/`, '_blank');
+              }}
+              title="Siteyi yeni sekmede aç"
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--primary)',
+                cursor: 'pointer',
+                background: 'rgba(99, 102, 241, 0.08)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '11px',
+                fontWeight: '600',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <ExternalLink size={13} /> Yeni Sekmede Aç
+            </button>
           </div>
         </div>
 

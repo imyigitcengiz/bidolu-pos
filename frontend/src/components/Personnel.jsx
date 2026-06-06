@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, Award, Calendar, Plus } from 'lucide-react';
+import { useResponsive } from '../hooks/useResponsive';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function Personnel() {
+  const { isMobile } = useResponsive();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -77,7 +79,7 @@ export default function Personnel() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: isMobile ? '16px' : '24px' }}>
       
       {/* Staff List */}
       <div className="card">

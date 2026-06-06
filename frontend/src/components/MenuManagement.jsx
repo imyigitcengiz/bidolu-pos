@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useResponsive } from '../hooks/useResponsive';
 import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function MenuManagement() {
+  const { isMobile } = useResponsive();
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [activeTab, setActiveTab] = useState('items'); // 'items' | 'categories' | 'modifiers'
@@ -227,7 +229,7 @@ export default function MenuManagement() {
   return (
     <div>
       {/* Sub-navigation Tabs */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
         <button
           className={`btn ${activeTab === 'items' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('items')}
@@ -399,7 +401,7 @@ export default function MenuManagement() {
           </div>
         </div>
       ) : (
-        <div className="menu-mgmt-container" style={{ gridTemplateColumns: '1fr 1.5fr' }}>
+        <div className="menu-mgmt-container" style={{ gridTemplateColumns: isMobile ? '1fr' : '1fr 1.5fr' }}>
           {/* Category Form */}
           <div className="card">
             <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>Yeni Kategori Ekle</h3>
@@ -472,7 +474,7 @@ export default function MenuManagement() {
 
       {/* ── MODIFIER TAB ── */}
       {activeTab === 'modifiers' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', gap: isMobile ? '16px' : '24px' }}>
           {/* Add Modifier Form */}
           <div className="card">
             <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>Seçenek Ekle</h3>

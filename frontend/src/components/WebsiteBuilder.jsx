@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, Copy, Check, Download, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useResponsive } from '../hooks/useResponsive';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function WebsiteBuilder() {
+  const { isMobile } = useResponsive();
   const [profileId, setProfileId] = useState(null);
   const [slug, setSlug] = useState('bidolu-restoran');
   const [themeColor, setThemeColor] = useState('#6366f1');
@@ -77,7 +79,7 @@ export default function WebsiteBuilder() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: isMobile ? '16px' : '24px' }}>
       
       {/* Settings Form Card */}
       <div className="card">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useResponsive } from '../hooks/useResponsive';
 import { Layers, QrCode, Globe, Users, MessageSquare, Plus, Trash2, Send, Save, ArrowLeft, RefreshCw, CheckCircle2, Play, MapPin, Lock } from 'lucide-react';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
@@ -18,6 +19,7 @@ const hasRequiredPlan = (currentPlan, requiredPlan) => {
 
 
 export default function Extensions({ setCurrentTab, activeSubView, setActiveSubView, restaurantProfile, fetchRestaurantProfile }) {
+  const { isMobile } = useResponsive();
   const handleToggleExtension = async (field, value) => {
     if (!restaurantProfile || !restaurantProfile.id) return;
     try {
@@ -594,7 +596,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
             <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>/ Müşteri CRM</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: isMobile ? '16px' : '24px' }}>
             {/* Customer CRM List */}
             <div className="card">
               <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -681,7 +683,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
           </div>
 
           {/* Subtab Navigation inside WhatsApp View */}
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px' }}>
             <button 
               onClick={() => setWaSubTab('contacts')} 
               className={`btn ${waSubTab === 'contacts' ? 'btn-primary' : 'btn-secondary'}`}
@@ -810,7 +812,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
 
           {/* Tab 2: Campaign Send Planner */}
           {waSubTab === 'campaign' && (
-            <div className="card" style={{ maxWidth: '600px' }}>
+            <div className="card" style={{ maxWidth: isMobile ? '100%' : '600px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Send size={18} /> Yeni WhatsApp Kampanyası Oluştur
               </h3>

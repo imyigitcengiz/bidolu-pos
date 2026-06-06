@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, Plus, Trash2, PlusCircle, ShoppingCart, Activity } from 'lucide-react';
+import { useResponsive } from '../hooks/useResponsive';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 export default function RecipeInventory() {
+  const { isMobile } = useResponsive();
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory', 'recipes', or 'audit'
   
   // Ingredients State
@@ -278,7 +280,7 @@ export default function RecipeInventory() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* Sub tabs */}
-      <div style={{ display: 'flex', gap: '12px' }}>
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <button 
           className={`btn ${activeTab === 'inventory' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('inventory')}
@@ -303,7 +305,7 @@ export default function RecipeInventory() {
       </div>
 
       {activeTab === 'inventory' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: isMobile ? '16px' : '24px' }}>
           {/* Ingredients list */}
           <div className="card">
             <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>Malzeme Stok Listesi</h3>
@@ -417,7 +419,7 @@ export default function RecipeInventory() {
       )}
 
       {activeTab === 'recipes' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: isMobile ? '16px' : '24px' }}>
           {/* Recipes list */}
           <div className="card">
             <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>Menü Reçeteleri</h3>
@@ -523,7 +525,7 @@ export default function RecipeInventory() {
       {activeTab === 'audit' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2.2fr 1fr', gap: isMobile ? '16px' : '24px' }}>
             
             {/* Audit Entry Table */}
             <div className="card">
