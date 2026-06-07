@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useResponsive } from '../hooks/useResponsive';
 import { TrendingUp, TrendingDown, DollarSign, ShoppingBag, CreditCard, Banknote, Clock, Award, BarChart3, CalendarDays, ChevronDown, RefreshCw } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 // ─── Mini Bar Chart (Canvas) ─────────────────────────
 function BarChart({ data, labelKey, valueKey, height = 220, color = '#6366f1' }) {
@@ -248,7 +248,7 @@ export default function Reports() {
     setLoading(true);
     try {
       const { start, end } = getDateRange();
-      const res = await fetch(`${API_BASE}/report-stats/?start=${start}&end=${end}`);
+      const res = await apiFetch(`/report-stats/?start=${start}&end=${end}`);
       const json = await res.json();
       setData(json);
     } catch (err) {

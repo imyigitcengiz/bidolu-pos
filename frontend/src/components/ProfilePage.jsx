@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import { User, Mail, Phone, Lock, Save, Check, Camera, Shield } from 'lucide-react';
 import { useResponsive } from '../hooks/useResponsive';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 const ROLE_LABELS = {
   super_admin: { label: 'Süper Yönetici', color: '#dc2626', bg: '#fef2f2' },
+  store_owner: { label: 'Kurum Yöneticisi', color: '#7c3aed', bg: '#f5f3ff' },
+  manager: { label: 'Operasyon Müdürü', color: '#2563eb', bg: '#eff6ff' },
+  cashier: { label: 'Finans Sorumlusu', color: '#0891b2', bg: '#ecfeff' },
+  kitchen: { label: 'Üretim Sorumlusu', color: '#059669', bg: '#ecfdf5' },
+  waiter: { label: 'Servis Sorumlusu', color: '#d97706', bg: '#fffbeb' },
+  staff: { label: 'Ekip Üyesi', color: '#059669', bg: '#ecfdf5' },
   admin: { label: 'Yönetici', color: '#7c3aed', bg: '#f5f3ff' },
-  manager: { label: 'Müdür', color: '#2563eb', bg: '#eff6ff' },
-  staff: { label: 'Personel', color: '#059669', bg: '#ecfdf5' },
-  waiter: { label: 'Garson', color: '#d97706', bg: '#fffbeb' },
 };
 
 export default function ProfilePage({ authToken, currentUser, onProfileUpdate }) {
@@ -35,7 +38,7 @@ export default function ProfilePage({ authToken, currentUser, onProfileUpdate })
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/me/`, {
+      const res = await apiFetch(`${API_BASE}/auth/me/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -68,7 +71,7 @@ export default function ProfilePage({ authToken, currentUser, onProfileUpdate })
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/me/`, {
+      const res = await apiFetch(`${API_BASE}/auth/me/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

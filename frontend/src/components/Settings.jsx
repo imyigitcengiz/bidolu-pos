@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useResponsive } from '../hooks/useResponsive';
 import { Settings, Shield, Award, Check, Clock, Edit3, ArrowRight, User, MessageSquare, Save } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 const PLANS = [
   {
     id: 'Starter',
     name: 'Başlangıç (Starter)',
-    price: '299 ₺',
+    price: '499 ₺',
     desc: 'Yeni açılan, küçük ölçekli kafe ve büfeler için ideal temel paket.',
     features: [
       '10 Masaya Kadar Destek',
@@ -25,7 +25,7 @@ const PLANS = [
   {
     id: 'Growth',
     name: 'Büyüyen (Growth)',
-    price: '599 ₺',
+    price: '999 ₺',
     desc: 'İşlerini büyüten ve profesyonel kontrol isteyen restoranlar için.',
     features: [
       'Sınırsız Masa Yönetimi',
@@ -45,7 +45,7 @@ const PLANS = [
   {
     id: 'Enterprise',
     name: 'Kurumsal (Enterprise)',
-    price: 'Özel Fiyat',
+    price: '1999 ₺',
     desc: 'Çok şubeli büyük restoran zincirleri ve franchise işletmeler için.',
     features: [
       'Sınırsız Masa & Çoklu Şube',
@@ -81,6 +81,7 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
   const [resPlan, setResPlan] = useState('Growth');
   const [resPlanExpiry, setResPlanExpiry] = useState('');
   const [loading, setLoading] = useState(true);
+  const [fullProfile, setFullProfile] = useState(null);
 
   // User Profile mock state
   const [username, setUsername] = useState('im.yigit');
@@ -105,10 +106,262 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
     fetchWhatsAppConfig();
   }, []);
 
+  const handleExportSettings = () => {
+    if (!fullProfile) return;
+    const exportData = {
+      version: '1.0',
+      website_slug: fullProfile.website_slug,
+      website_theme_color: fullProfile.website_theme_color,
+      website_banner_text: fullProfile.website_banner_text,
+      website_enable_table_orders: fullProfile.website_enable_table_orders,
+      website_enable_delivery: fullProfile.website_enable_delivery,
+      website_enable_takeaway: fullProfile.website_enable_takeaway,
+      website_custom_domain: fullProfile.website_custom_domain,
+      website_about_text: fullProfile.website_about_text,
+      website_instagram: fullProfile.website_instagram,
+      website_facebook: fullProfile.website_facebook,
+      website_template: fullProfile.website_template,
+      website_enable_reservation: fullProfile.website_enable_reservation,
+      ext_qr_menu_enabled: fullProfile.ext_qr_menu_enabled,
+      ext_official_website_enabled: fullProfile.ext_official_website_enabled,
+    };
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bidolu-pos-site-settings-${resName.toLowerCase().replace(/\s+/g, '-')}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportSettings = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        if (profileId) {
+          const res = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(imported)
+          });
+          if (res.ok) {
+            alert('Site ayarları başarıyla içe aktarıldı ve güncellendi!');
+            fetchRestaurantProfile();
+            if (parentFetchProfile) parentFetchProfile();
+          } else {
+            alert('İçe aktarma sırasında sunucu hatası oluştu.');
+          }
+        }
+      } catch (err) {
+        alert('Geçersiz dosya formatı.');
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleDeleteSettings = async () => {
+    if (!window.confirm('Tüm site ayarlarını sıfırlamak ve tasarım bloklarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) return;
+    
+    const resetData = {
+      website_slug: 'bidolu-restoran',
+      website_theme_color: '#6366f1',
+      website_banner_text: 'Hoş Geldiniz!',
+      website_enable_table_orders: true,
+      website_enable_delivery: true,
+      website_enable_takeaway: true,
+      website_custom_domain: '',
+      website_about_text: '',
+      website_instagram: '',
+      website_facebook: '',
+      website_template: 'Modern Dark',
+      website_enable_reservation: true,
+    };
+
+    try {
+      if (profileId) {
+        const res = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(resetData)
+        });
+        if (res.ok) {
+          alert('Tüm site ayarları sıfırlandı ve silindi.');
+          fetchRestaurantProfile();
+          if (parentFetchProfile) parentFetchProfile();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleExportGeneral = () => {
+    if (!fullProfile) return;
+    const generalData = {
+      version: '1.0',
+      type: 'general_backup',
+      restaurant_profile: {
+        name: resName,
+        phone: resPhone,
+        address: resAddress,
+        tax_office: resTaxOffice,
+        tax_number: resTaxNumber,
+        working_hours: resHours,
+        active_plan: resPlan,
+        website_slug: fullProfile.website_slug,
+        website_theme_color: fullProfile.website_theme_color,
+        website_banner_text: fullProfile.website_banner_text,
+        website_enable_table_orders: fullProfile.website_enable_table_orders,
+        website_enable_delivery: fullProfile.website_enable_delivery,
+        website_enable_takeaway: fullProfile.website_enable_takeaway,
+        website_custom_domain: fullProfile.website_custom_domain,
+        website_about_text: fullProfile.website_about_text,
+        website_instagram: fullProfile.website_instagram,
+        website_facebook: fullProfile.website_facebook,
+        website_template: fullProfile.website_template,
+        website_enable_reservation: fullProfile.website_enable_reservation,
+        ext_qr_menu_enabled: fullProfile.ext_qr_menu_enabled,
+        ext_official_website_enabled: fullProfile.ext_official_website_enabled,
+        ext_crm_enabled: fullProfile.ext_crm_enabled,
+        ext_whatsapp_enabled: fullProfile.ext_whatsapp_enabled,
+        ext_live_courier_enabled: fullProfile.ext_live_courier_enabled,
+      },
+      whatsapp_config: waConfig
+    };
+    const dataStr = JSON.stringify(generalData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bidolu-pos-genel-yedek-${resName.toLowerCase().replace(/\s+/g, '-')}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportGeneral = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        if (imported.type !== 'general_backup') {
+          alert('Hata: Seçilen dosya geçerli bir Sistem Genel Yedek dosyası değil.');
+          return;
+        }
+
+        if (profileId && imported.restaurant_profile) {
+          const resProfile = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(imported.restaurant_profile)
+          });
+          
+          let waSuccess = true;
+          if (imported.whatsapp_config) {
+            const waId = waConfig.id || imported.whatsapp_config.id;
+            if (waId) {
+              const resWa = await apiFetch(`${API_BASE}/whatsapp-configs/${waId}/`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(imported.whatsapp_config)
+              });
+              waSuccess = resWa.ok;
+            }
+          }
+          
+          if (resProfile.ok && waSuccess) {
+            alert('Sistem genel yedekleme başarıyla geri yüklendi!');
+            fetchRestaurantProfile();
+            fetchWhatsAppConfig();
+            if (parentFetchProfile) parentFetchProfile();
+          } else {
+            alert('Geri yükleme sırasında bazı hatalar oluştu.');
+          }
+        }
+      } catch (err) {
+        alert('Geçersiz dosya formatı.');
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleDeleteGeneral = async () => {
+    if (!window.confirm('Tüm restoran kimliğini, WhatsApp API entegrasyonlarını ve web sitesi ayarlarını sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz.')) return;
+    
+    const resetProfile = {
+      website_slug: 'bidolu-restoran',
+      website_theme_color: '#6366f1',
+      website_banner_text: 'Hoş Geldiniz!',
+      website_enable_table_orders: true,
+      website_enable_delivery: true,
+      website_enable_takeaway: true,
+      website_custom_domain: '',
+      website_about_text: '',
+      website_instagram: '',
+      website_facebook: '',
+      website_template: 'Modern Dark',
+      website_enable_reservation: true,
+      name: 'Bidolu Kebap & Lahmacun',
+      phone: '',
+      address: '',
+      tax_office: '',
+      tax_number: '',
+      working_hours: '09:00 - 23:00',
+    };
+
+    const resetWa = {
+      api_key: '',
+      phone_number_id: '',
+      is_auto_message_enabled: true,
+      message_template: 'Merhaba {customer_name}, {order_id} nolu siparişiniz alınmıştır. Afiyet olsun!',
+      is_live_chat_enabled: false,
+      ask_admin_before_sending: true
+    };
+
+    try {
+      if (profileId) {
+        const resProf = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(resetProfile)
+        });
+        
+        let waId = waConfig.id;
+        let waSuccess = true;
+        if (waId) {
+          const resWa = await apiFetch(`${API_BASE}/whatsapp-configs/${waId}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(resetWa)
+          });
+          waSuccess = resWa.ok;
+        }
+
+        if (resProf.ok && waSuccess) {
+          alert('Tüm veriler başarıyla sıfırlandı.');
+          fetchRestaurantProfile();
+          fetchWhatsAppConfig();
+          if (parentFetchProfile) parentFetchProfile();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchWhatsAppConfig = async () => {
     try {
       setLoadingWa(true);
-      const res = await fetch(`${API_BASE}/whatsapp-configs/`);
+      const res = await apiFetch(`${API_BASE}/whatsapp-configs/`);
       const data = await res.json();
       if (data && data.length > 0) {
         setWaConfig(data[0]);
@@ -125,13 +378,13 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
     try {
       let res;
       if (waConfig.id) {
-        res = await fetch(`${API_BASE}/whatsapp-configs/${waConfig.id}/`, {
+        res = await apiFetch(`${API_BASE}/whatsapp-configs/${waConfig.id}/`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(waConfig)
         });
       } else {
-        res = await fetch(`${API_BASE}/whatsapp-configs/`, {
+        res = await apiFetch(`${API_BASE}/whatsapp-configs/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(waConfig)
@@ -151,7 +404,7 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
   const fetchRestaurantProfile = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/restaurant-profile/`);
+      const res = await apiFetch(`${API_BASE}/restaurant-profile/`);
       const data = await res.json();
       if (data && data.length > 0) {
         const prof = data[0];
@@ -191,13 +444,13 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
     try {
       let res;
       if (profileId) {
-        res = await fetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+        res = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else {
-        res = await fetch(`${API_BASE}/restaurant-profile/`, {
+        res = await apiFetch(`${API_BASE}/restaurant-profile/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -226,7 +479,7 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
 
     try {
       if (profileId) {
-        const res = await fetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+        const res = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ active_plan: planId })
@@ -278,6 +531,13 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
             onClick={() => setActiveSubTab('whatsapp')}
           >
             💬 WhatsApp API Ayarları
+          </button>
+          <button 
+            className={`btn ${activeSubTab === 'backup' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ justifyContent: 'flex-start', padding: '12px', fontSize: '13px' }}
+            onClick={() => setActiveSubTab('backup')}
+          >
+            📂 Yedekleme İşlemleri
           </button>
         </div>
       </div>
@@ -512,6 +772,101 @@ export default function SettingsComponent({ fetchRestaurantProfile: parentFetchP
                     </button>
                   </form>
                 )}
+              </div>
+            )}
+
+            {activeSubTab === 'site' && (
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🌐 Web Sitesi & QR Menü Yedekleme ve Yönetimi
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px', lineHeight: '1.5' }}>
+                  Restoranınızın QR menü ve kurumsal tanıtım web sitesi ayarlarını (tasarım şablonları, yerleşim blokları, renkler ve entegrasyonlar) yedekleyebilir, başka bir hesaba aktarabilir veya tamamen sıfırlayabilirsiniz.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '600px' }}>
+                  
+                  {/* Export Card */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: '16px', 
+                    background: 'rgba(255, 255, 255, 0.02)', 
+                    border: '1px solid var(--panel-border)', 
+                    borderRadius: '12px' 
+                  }}>
+                    <div>
+                      <strong style={{ fontSize: '14px', display: 'block', color: 'var(--text-main)' }}>Ayarları Dışa Aktar (Export)</strong>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                        Tüm site bloklarını ve konfigürasyonunu JSON formatında yedekleyin.
+                      </span>
+                    </div>
+                    <button 
+                      onClick={handleExportSettings}
+                      className="btn btn-primary"
+                      style={{ padding: '10px 18px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      📥 Ayarları İndir
+                    </button>
+                  </div>
+
+                  {/* Import Card */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: '16px', 
+                    background: 'rgba(255, 255, 255, 0.02)', 
+                    border: '1px solid var(--panel-border)', 
+                    borderRadius: '12px' 
+                  }}>
+                    <div>
+                      <strong style={{ fontSize: '14px', display: 'block', color: 'var(--text-main)' }}>Ayarları İçe Aktar (Import)</strong>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                        Daha önce yedeklediğiniz bir site ayarı dosyasını sisteme yükleyin.
+                      </span>
+                    </div>
+                    <label 
+                      className="btn btn-secondary"
+                      style={{ padding: '10px 18px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}
+                    >
+                      📤 Dosya Yükle
+                      <input 
+                        type="file" 
+                        accept=".json" 
+                        onChange={handleImportSettings} 
+                        style={{ display: 'none' }} 
+                      />
+                    </label>
+                  </div>
+
+                  {/* Reset/Delete Card */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    padding: '16px', 
+                    background: 'rgba(239, 68, 68, 0.02)', 
+                    border: '1px solid rgba(239, 68, 68, 0.15)', 
+                    borderRadius: '12px' 
+                  }}>
+                    <div>
+                      <strong style={{ fontSize: '14px', display: 'block', color: '#ef4444' }}>Tüm Ayarları Sıfırla (Delete)</strong>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                        Tüm tasarımı, özel blokları sıfırlar ve varsayılana döndürür.
+                      </span>
+                    </div>
+                    <button 
+                      onClick={handleDeleteSettings}
+                      className="btn btn-secondary"
+                      style={{ padding: '10px 18px', fontSize: '12px', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.25)', background: 'rgba(239, 68, 68, 0.04)' }}
+                    >
+                      🗑️ Ayarları Sıfırla
+                    </button>
+                  </div>
+
+                </div>
               </div>
             )}
           </>

@@ -26,13 +26,14 @@ class Brand(models.Model):
 class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('super_admin', 'Süper Yönetici'),
-        ('admin', 'Yönetici'),
-        ('manager', 'Müdür'),
-        ('staff', 'Personel'),
-        ('waiter', 'Garson'),
+        ('store_owner', 'Kurum Yöneticisi'),
+        ('manager', 'Operasyon Müdürü'),
+        ('waiter', 'Servis Sorumlusu'),
+        ('cashier', 'Finans Sorumlusu'),
+        ('kitchen', 'Üretim Sorumlusu'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='staff')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='waiter')
     phone = models.CharField(max_length=20, blank=True, null=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, blank=True, null=True, related_name='members')
@@ -53,24 +54,32 @@ class Table(models.Model):
         ('occupied', 'Dolu'),
         ('bill_requested', 'Hesap İstendi'),
     ]
-    name = models.CharField(max_length=50, unique=True)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='tables', null=True, blank=True)
+    branch = models.ForeignKey('Branch', on_delete=models.CASCADE, related_name='tables', null=True, blank=True)
+    name = models.CharField(max_length=50)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='empty')
     capacity = models.IntegerField(default=4)
 
+    class Meta:
+        unique_together = ('brand', 'branch', 'name')
+
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.brand.name if self.brand else 'No Brand'})"
 
 class Category(models.Model):
-    name = models.CharField(max_length=50, unique=True)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='categories', null=True, blank=True)
+    name = models.CharField(max_length=50)
     icon = models.CharField(max_length=50, default='utensils')  # Lucide icon name
 
     class Meta:
         verbose_name_plural = "Categories"
+        unique_together = ('brand', 'name')
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.brand.name if self.brand else 'No Brand'})"
 
 class MenuItem(models.Model):
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='menu_items', null=True, blank=True)
     category = models.ForeignKey(Category, related_name='items', on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
@@ -103,6 +112,8 @@ class Order(models.Model):
         ('percent', 'Yüzde (%)'),
         ('fixed', 'Sabit (TL)'),
     ]
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
+    branch = models.ForeignKey('Branch', on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     table = models.ForeignKey(Table, related_name='orders', on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='preparing')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -158,27 +169,40 @@ class Payment(models.Model):
 # New models for extended POS functionality
 
 class OrderChannel(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='order_channels', null=True, blank=True)
+    name = models.CharField(max_length=100)
     api_key = models.CharField(max_length=255, blank=True, null=True)
     endpoint_url = models.URLField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        unique_together = ('brand', 'name')
 
     def __str__(self):
         return self.name
 
 class CashRegister(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='cash_registers', null=True, blank=True)
+    branch = models.ForeignKey('Branch', on_delete=models.CASCADE, related_name='cash_registers', null=True, blank=True)
+    name = models.CharField(max_length=100)
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     location = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        unique_together = ('brand', 'name')
 
     def __str__(self):
         return f"{self.name} - {self.balance} TL"
 
 class Ingredient(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='ingredients', null=True, blank=True)
+    name = models.CharField(max_length=100)
     stock_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     minimum_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     unit = models.CharField(max_length=20, default='pcs')
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
+    class Meta:
+        unique_together = ('brand', 'name')
 
     def __str__(self):
         return self.name
@@ -202,7 +226,13 @@ class RecipeIngredient(models.Model):
 
 class StaffMember(models.Model):
     user = models.OneToOneField('auth.User', on_delete=models.CASCADE)
-    role = models.CharField(max_length=50, choices=[('manager','Manager'),('staff','Staff'),('admin','Admin')], default='staff')
+    role = models.CharField(max_length=50, choices=[
+        ('store_owner', 'Kurum Yöneticisi'),
+        ('manager', 'Operasyon Müdürü'),
+        ('waiter', 'Servis Sorumlusu'),
+        ('cashier', 'Finans Sorumlusu'),
+        ('kitchen', 'Üretim Sorumlusu'),
+    ], default='waiter')
     hire_date = models.DateField(blank=True, null=True)
 
     def __str__(self):
@@ -219,6 +249,7 @@ class Expense(models.Model):
         return f"{self.title} - {self.amount} TL"
 
 class Courier(models.Model):
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='couriers', null=True, blank=True)
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20, blank=True, null=True)
     status = models.CharField(max_length=50, default='available')
@@ -237,6 +268,7 @@ class CourierLog(models.Model):
         return f"{self.courier.name} - Order #{self.order.id} ({self.status})"
 
 class RestaurantProfile(models.Model):
+    brand = models.OneToOneField(Brand, on_delete=models.CASCADE, related_name='restaurant_profile', null=True, blank=True)
     name = models.CharField(max_length=150, default='Bidolu Restoran')
     phone = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
@@ -308,17 +340,22 @@ class StockAuditItem(models.Model):
         return f"{self.ingredient.name} sayım farkı: {self.variance} {self.ingredient.unit}"
 
 class Customer(models.Model):
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='customers', null=True, blank=True)
     name = models.CharField(max_length=150)
-    phone = models.CharField(max_length=20, unique=True)
+    phone = models.CharField(max_length=20)
     email = models.EmailField(blank=True, null=True)
     total_orders = models.IntegerField(default=0)
     last_order_date = models.DateField(blank=True, null=True)
     subscription_status = models.CharField(max_length=30, default='active')
 
+    class Meta:
+        unique_together = ('brand', 'phone')
+
     def __str__(self):
         return f"{self.name} ({self.phone})"
 
 class WhatsAppConfig(models.Model):
+    brand = models.OneToOneField(Brand, on_delete=models.CASCADE, related_name='whatsapp_config', null=True, blank=True)
     api_key = models.CharField(max_length=255, blank=True, null=True)
     phone_number_id = models.CharField(max_length=100, blank=True, null=True)
     is_auto_message_enabled = models.BooleanField(default=True)
@@ -328,5 +365,87 @@ class WhatsAppConfig(models.Model):
 
     def __str__(self):
         return f"WhatsApp Config - Enabled: {self.is_auto_message_enabled}"
+
+
+class Branch(models.Model):
+    brand = models.ForeignKey(Brand, related_name='branches', on_delete=models.CASCADE)
+    name = models.CharField(max_length=150)
+    city = models.CharField(max_length=100, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    # Harici franchise paneli — şifreyi kurum yöneticisi belirler
+    panel_slug = models.SlugField(max_length=80, unique=True, blank=True, null=True)
+    panel_password = models.CharField(max_length=128, blank=True, null=True)
+    panel_enabled = models.BooleanField(default=False)
+    panel_password_updated_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('brand', 'name')
+
+    def __str__(self):
+        return f"{self.name} ({self.brand.name})"
+
+
+class FranchisePanelToken(models.Model):
+    """Harici franchise panel oturum token'ı — kullanıcı hesabı gerektirmez."""
+    branch = models.ForeignKey(Branch, related_name='panel_tokens', on_delete=models.CASCADE)
+    key = models.CharField(max_length=40, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Franchise token — {self.branch.name}"
+
+
+class AuditLog(models.Model):
+    """Güvenlik izi — impersonation ve kritik işlemler."""
+    ACTION_CHOICES = [
+        ('impersonate', 'Hesaba Gir'),
+        ('brand_enter', 'Mağazaya Gir'),
+    ]
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='audit_actions')
+    target_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_targets')
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    metadata = models.JSONField(blank=True, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.action} by {self.actor_id} at {self.created_at}"
+
+
+class Invoice(models.Model):
+    PAYMENT_PROVIDER_CHOICES = [
+        ('mock', 'Mock'),
+        ('stripe', 'Stripe'),
+        ('iyzico', 'iyzico'),
+    ]
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Bekliyor'),
+        ('paid', 'Ödendi'),
+        ('failed', 'Başarısız'),
+        ('cancelled', 'İptal'),
+    ]
+
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, related_name='invoices')
+    invoice_number = models.CharField(max_length=50, unique=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    plan = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+    paid = models.BooleanField(default=False)
+    payment_provider = models.CharField(max_length=20, choices=PAYMENT_PROVIDER_CHOICES, default='mock')
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    external_id = models.CharField(max_length=255, blank=True, null=True)
+    checkout_url = models.URLField(max_length=500, blank=True, null=True)
+    paid_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.invoice_number} - {self.brand.name} ({self.amount} TL)"
+
+
 
 

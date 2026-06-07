@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Globe, Copy, Check, Download, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useResponsive } from '../hooks/useResponsive';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 export default function WebsiteBuilder() {
   const { isMobile } = useResponsive();
@@ -24,7 +24,7 @@ export default function WebsiteBuilder() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/restaurant-profile/`);
+      const res = await apiFetch(`${API_BASE}/restaurant-profile/`);
       const data = await res.json();
       if (data && data.length > 0) {
         const prof = data[0];
@@ -56,7 +56,7 @@ export default function WebsiteBuilder() {
 
     try {
       if (profileId) {
-        const res = await fetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+        const res = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

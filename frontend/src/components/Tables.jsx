@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Coffee, Users, AlertCircle } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 export default function Tables({ onSelectTable }) {
   const [tables, setTables] = useState([]);
@@ -18,11 +18,11 @@ export default function Tables({ onSelectTable }) {
   const fetchTablesAndOrders = async () => {
     try {
       // Fetch all tables
-      const tablesRes = await fetch(`${API_BASE}/tables/`);
+      const tablesRes = await apiFetch(`/tables/`);
       const tablesData = await tablesRes.json();
       
       // Fetch all active orders
-      const ordersRes = await fetch(`${API_BASE}/orders/?active=true`);
+      const ordersRes = await apiFetch(`/orders/?active=true`);
       const ordersData = await ordersRes.json();
       
       // Map table ID to active order
@@ -88,7 +88,10 @@ export default function Tables({ onSelectTable }) {
               </div>
               
               <div className="table-box-name">{table.name}</div>
-              
+              {table.branch_name && (
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>{table.branch_name}</div>
+              )}
+
               <div className="table-box-capacity">
                 <Users size={12} /> {table.capacity} Kişilik
               </div>

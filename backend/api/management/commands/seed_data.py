@@ -5,7 +5,7 @@ from api.models import (
     Table, Category, MenuItem, Order, OrderItem, Payment,
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
     StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
-    Customer, WhatsAppConfig
+    Customer, WhatsAppConfig, Brand, UserProfile, Branch
 )
 import random
 from datetime import timedelta
@@ -17,6 +17,8 @@ class Command(BaseCommand):
         self.stdout.write('Seeding data...')
         
         # 1. Clear existing data
+        Branch.objects.all().delete()
+        Brand.objects.all().delete()
         CourierLog.objects.all().delete()
         Courier.objects.all().delete()
         Expense.objects.all().delete()
@@ -38,7 +40,60 @@ class Command(BaseCommand):
         
         self.stdout.write('Existing data cleared.')
 
-        # 2. Create Tables (Physical & Delivery/External Channels)
+        # 2. Create Brand, Profiles & Staff (created first to link all multi-tenant models)
+        admin_user = User.objects.filter(is_superuser=True).first()
+        if not admin_user:
+            admin_user, _ = User.objects.get_or_create(username='im.yigit', email='yigit@bidolupos.com')
+            admin_user.set_password('Yigoc3535-*')
+            admin_user.is_superuser = True
+            admin_user.is_staff = True
+            admin_user.save()
+
+        brand = Brand.objects.create(
+            name="Bidolu Kebap ve Lahmacun Grubu",
+            slug="bidolu-kebap-grubu",
+            owner=admin_user,
+            plan="enterprise",
+            plan_expiry=timezone.now().date() + timedelta(days=365),
+            is_active=True
+        )
+
+        admin_profile, _ = UserProfile.objects.get_or_create(user=admin_user)
+        admin_profile.brand = brand
+        admin_profile.role = 'super_admin'
+        admin_profile.save()
+
+        staff1 = StaffMember.objects.create(user=admin_user, role='admin', hire_date=timezone.now().date() - timedelta(days=30))
+        
+        garson_user, _ = User.objects.get_or_create(username='garson1', email='garson1@bidolupos.com')
+        garson_user.set_password('Yigoc3535-*')
+        garson_user.save()
+
+        garson_profile, _ = UserProfile.objects.get_or_create(user=garson_user)
+        garson_profile.brand = brand
+        garson_profile.role = 'staff'
+        garson_profile.save()
+
+        staff2 = StaffMember.objects.create(user=garson_user, role='staff', hire_date=timezone.now().date() - timedelta(days=15))
+
+        self.stdout.write('Brand, profiles, and staff seeded.')
+
+        # 3. Create Branches (before tables — şube bazlı izolasyon)
+        branch_alsancak = Branch.objects.create(
+            brand=brand, name="Alsancak Merkez Şubesi", city="İzmir",
+            address="Alsancak, Konak, İzmir", phone="0232 444 55 66", is_active=True,
+        )
+        branch_bostanli = Branch.objects.create(
+            brand=brand, name="Bostanlı Şubesi", city="İzmir",
+            address="Bostanlı, Karşıyaka, İzmir", phone="0232 333 44 55", is_active=True,
+        )
+        branch_bornova = Branch.objects.create(
+            brand=brand, name="Bornova Şubesi", city="İzmir",
+            address="Bornova Merkez, Bornova, İzmir", phone="0232 222 33 44", is_active=False,
+        )
+        branches = [branch_alsancak, branch_bostanli]
+
+        # 4. Create Tables (her aktif şube için ayrı masa seti)
         tables_data = [
             {'name': 'Masa 1', 'capacity': 4},
             {'name': 'Masa 2', 'capacity': 2},
@@ -47,7 +102,6 @@ class Command(BaseCommand):
             {'name': 'Bahçe 1', 'capacity': 4},
             {'name': 'Bahçe 2', 'capacity': 8},
             {'name': 'VIP Salon', 'capacity': 10},
-            # Virtual Tables for Delivery
             {'name': 'WebSitesi Paket', 'capacity': 1},
             {'name': 'Yemeksepeti Paket', 'capacity': 1},
             {'name': 'Getir Paket', 'capacity': 1},
@@ -56,14 +110,18 @@ class Command(BaseCommand):
         ]
         tables = []
         tables_dict = {}
-        for t in tables_data:
-            table = Table.objects.create(name=t['name'], capacity=t['capacity'], status='empty')
-            tables.append(table)
-            tables_dict[t['name']] = table
-        
-        self.stdout.write(f'{len(tables)} tables created.')
+        for branch in branches:
+            for t in tables_data:
+                table = Table.objects.create(
+                    brand=brand, branch=branch, name=t['name'],
+                    capacity=t['capacity'], status='empty',
+                )
+                tables.append(table)
+                tables_dict[f"{branch.id}:{t['name']}"] = table
 
-        # 3. Create Categories
+        self.stdout.write(f'{len(tables)} tables created across {len(branches)} branches.')
+
+        # 5. Create Categories
         categories_data = [
             {'name': 'Çorbalar', 'icon': 'soup'},
             {'name': 'Ana Yemekler', 'icon': 'utensils'},
@@ -73,12 +131,12 @@ class Command(BaseCommand):
         ]
         categories = {}
         for c in categories_data:
-            cat = Category.objects.create(name=c['name'], icon=c['icon'])
+            cat = Category.objects.create(brand=brand, name=c['name'], icon=c['icon'])
             categories[c['name']] = cat
             
         self.stdout.write(f'{len(categories)} categories created.')
 
-        # 4. Create Menu Items
+        # 6. Create Menu Items
         menu_items_data = [
             {'category': 'Çorbalar', 'name': 'Mercimek Çorbası', 'price': 65.00, 'description': 'Limon ve kruton ile servis edilir.'},
             {'category': 'Çorbalar', 'name': 'Ezogelin Çorbası', 'price': 70.00, 'description': 'Geleneksel lezzet.'},
@@ -100,6 +158,7 @@ class Command(BaseCommand):
         menu_items_dict = {}
         for item in menu_items_data:
             mi = MenuItem.objects.create(
+                brand=brand,
                 category=categories[item['category']],
                 name=item['name'],
                 price=item['price'],
@@ -111,7 +170,7 @@ class Command(BaseCommand):
             
         self.stdout.write(f'{len(menu_items)} menu items created.')
 
-        # 5. Seed Order Channels
+        # 7. Seed Order Channels
         channels_data = [
             {'name': 'WebSitesi', 'api_key': 'web-secret-key-123'},
             {'name': 'Yemeksepeti', 'api_key': 'ys-secret-key-456'},
@@ -122,11 +181,18 @@ class Command(BaseCommand):
         for ch in channels_data:
             OrderChannel.objects.create(name=ch['name'], api_key=ch['api_key'], endpoint_url='https://api.bidolupos.com/webhook')
 
-        # 6. Seed Cash Register
-        cash_register = CashRegister.objects.create(name='Ana Kasa', balance=8500.00, location='Giriş Danışma')
+        # 8. Seed Cash Registers (şube bazlı)
+        cash_registers = {}
+        for branch in branches:
+            reg = CashRegister.objects.create(
+                brand=brand, branch=branch, name=f'{branch.name} Kasası',
+                balance=4250.00, location=branch.name,
+            )
+            cash_registers[branch.id] = reg
 
-        # 6.5 Seed Restaurant Profile
+        # 9. Seed Restaurant Profile
         RestaurantProfile.objects.create(
+            brand=brand,
             name='Bidolu Kebap & Lahmacun',
             phone='0232 444 55 66',
             address='Alsancak Mah. Kıbrıs Şehitleri Cad. No:35 Konak / İzmir',
@@ -153,20 +219,21 @@ class Command(BaseCommand):
             ext_whatsapp_enabled=False
         )
 
-        # 6.6 Seed Customers
-        Customer.objects.create(name="Ahmet Yılmaz", phone="0532 111 22 33", email="ahmet@gmail.com", total_orders=12, last_order_date="2026-06-01")
-        Customer.objects.create(name="Mehmet Kaya", phone="0542 222 33 44", email="mehmet@gmail.com", total_orders=8, last_order_date="2026-06-03")
-        Customer.objects.create(name="Ayşe Demir", phone="0505 333 44 55", email="ayse@gmail.com", total_orders=15, last_order_date="2026-06-05")
+        # 10. Seed Customers
+        Customer.objects.create(brand=brand, name="Ahmet Yılmaz", phone="0532 111 22 33", email="ahmet@gmail.com", total_orders=12, last_order_date="2026-06-01")
+        Customer.objects.create(brand=brand, name="Mehmet Kaya", phone="0542 222 33 44", email="mehmet@gmail.com", total_orders=8, last_order_date="2026-06-03")
+        Customer.objects.create(brand=brand, name="Ayşe Demir", phone="0505 333 44 55", email="ayse@gmail.com", total_orders=15, last_order_date="2026-06-05")
 
-        # 6.7 Seed WhatsApp Config
+        # 11. Seed WhatsApp Config
         WhatsAppConfig.objects.create(
+            brand=brand,
             api_key="wh_live_key_9921",
             phone_number_id="10984852",
             is_auto_message_enabled=True,
             message_template="Merhaba {customer_name}, {order_id} nolu siparişiniz başarıyla alınmıştır. Afiyet olsun!"
         )
 
-        # 7. Seed Ingredients & Recipes
+        # 12. Seed Ingredients & Recipes
         ingredients_data = [
             {'name': 'Mercimek', 'stock_quantity': 50.0, 'unit': 'kg'},
             {'name': 'Kıyma', 'stock_quantity': 30.0, 'unit': 'kg'},
@@ -178,7 +245,7 @@ class Command(BaseCommand):
         ]
         ingredients_dict = {}
         for ing in ingredients_data:
-            obj = Ingredient.objects.create(name=ing['name'], stock_quantity=ing['stock_quantity'], unit=ing['unit'])
+            obj = Ingredient.objects.create(brand=brand, name=ing['name'], stock_quantity=ing['stock_quantity'], unit=ing['unit'])
             ingredients_dict[ing['name']] = obj
 
         # Recipe for Mercimek Çorbası
@@ -194,32 +261,16 @@ class Command(BaseCommand):
         r3 = Recipe.objects.create(menu_item=menu_items_dict['Tavuk Şiş'], instructions='Tavuğu marine et, şişe diz ve pişir.')
         RecipeIngredient.objects.create(recipe=r3, ingredient=ingredients_dict['Tavuk Göğsü'], quantity=0.22, unit='kg')
 
-        # 8. Seed Staff
-        admin_user = User.objects.filter(is_superuser=True).first()
-        if not admin_user:
-            admin_user, _ = User.objects.get_or_create(username='im.yigit', email='yigit@bidolupos.com')
-            admin_user.set_password('Yigoc3535-*')
-            admin_user.is_superuser = True
-            admin_user.is_staff = True
-            admin_user.save()
-
-        staff1 = StaffMember.objects.create(user=admin_user, role='admin', hire_date=timezone.now().date() - timedelta(days=30))
-        
-        garson_user, _ = User.objects.get_or_create(username='garson1', email='garson1@bidolupos.com')
-        garson_user.set_password('Yigoc3535-*')
-        garson_user.save()
-        staff2 = StaffMember.objects.create(user=garson_user, role='staff', hire_date=timezone.now().date() - timedelta(days=15))
-
-        # 9. Seed Expenses
+        # Seed Expenses
         Expense.objects.create(title='Dükkan Kirası', amount=4500.00, category='Kira', staff_member=staff1)
         Expense.objects.create(title='Manav Alımı', amount=1200.00, category='Gıda Malzemesi', staff_member=staff2)
         Expense.objects.create(title='Elektrik Faturası', amount=850.00, category='Fatura', staff_member=staff1)
 
-        # 10. Seed Couriers & Logs
-        c1 = Courier.objects.create(name='Ahmet Yılmaz', phone='0555 111 2233', status='available', cash_advance_amount=150.00)
-        c2 = Courier.objects.create(name='Mehmet Kaya', phone='0555 222 3344', status='on_delivery', cash_advance_amount=200.00)
+        # Seed Couriers & Logs
+        c1 = Courier.objects.create(brand=brand, name='Ahmet Yılmaz', phone='0555 111 2233', status='available', cash_advance_amount=150.00)
+        c2 = Courier.objects.create(brand=brand, name='Mehmet Kaya', phone='0555 222 3344', status='on_delivery', cash_advance_amount=200.00)
 
-        # 11. Seed Historical Sales & Delivery Orders
+        # Seed Historical Sales & Delivery Orders
         now = timezone.localtime()
         payment_methods = ['cash', 'card']
         
@@ -229,14 +280,14 @@ class Command(BaseCommand):
             num_orders = random.randint(5, 12) if i > 0 else random.randint(3, 6)
             
             for o_idx in range(num_orders):
-                # Let some orders be physical tables and others be delivery channels
+                branch = random.choice(branches)
                 is_delivery = random.choice([True, False])
                 if is_delivery:
                     table_name = random.choice(['WebSitesi Paket', 'Yemeksepeti Paket', 'Getir Paket', 'Trendyol Paket', 'Migros Paket'])
                 else:
                     table_name = random.choice(['Masa 1', 'Masa 2', 'Masa 3', 'Masa 4', 'Bahçe 1', 'Bahçe 2'])
-                
-                table = tables_dict[table_name]
+
+                table = tables_dict[f"{branch.id}:{table_name}"]
                 random_hour = random.randint(11, 22)
                 random_minute = random.randint(0, 59)
                 order_time = timezone.make_aware(
@@ -247,6 +298,8 @@ class Command(BaseCommand):
                 ) + timedelta(hours=random_hour, minutes=random_minute)
                 
                 order = Order.objects.create(
+                    brand=brand,
+                    branch=branch,
                     table=table,
                     status='completed',
                     created_at=order_time,
@@ -281,10 +334,9 @@ class Command(BaseCommand):
                     payment_method=pay_method,
                     created_at=order_time
                 )
-                cash_register.balance += total_amount
-                cash_register.save()
+                cash_registers[branch.id].balance += total_amount
+                cash_registers[branch.id].save()
 
-                # If delivery, add a courier log
                 if is_delivery:
                     CourierLog.objects.create(
                         courier=random.choice([c1, c2]),

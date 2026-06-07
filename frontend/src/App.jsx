@@ -9,7 +9,7 @@ import MenuManagement from './components/MenuManagement';
 import OrderPanel from './components/OrderPanel';
 import CashRegister from './components/CashRegister';
 import RecipeInventory from './components/RecipeInventory';
-import Personnel from './components/Personnel';
+import TeamManagement from './components/TeamManagement';
 import Expenses from './components/Expenses';
 import Couriers from './components/Couriers';
 import Reports from './components/Reports';
@@ -21,23 +21,75 @@ import AuthPage from './components/AuthPage';
 import ProfilePage from './components/ProfilePage';
 import SuperAdminPanel from './components/SuperAdminPanel';
 import SuperDashboard from './components/SuperDashboard';
+import FranchisePortal from './components/FranchisePortal';
+import FranchiseManagement from './components/FranchiseManagement';
+import PaymentResult from './components/PaymentResult';
+import { apiFetch, getSelectedBranchId, setSelectedBranchId } from './lib/apiClient';
 import { 
   LayoutGrid, Coffee, ChefHat, Settings, Calendar, Bell, ArrowLeft, 
   ShoppingBag, Layers, CreditCard, Users, DollarSign, Truck, PieChart, BookOpen, Globe, QrCode, Puzzle, MessageSquare,
-  Contact, Lock, Menu, X, LogOut, UserCircle, ShieldAlert
+  Contact, Lock, Menu, X, LogOut, UserCircle, ShieldAlert, HelpCircle, GitBranch
 } from 'lucide-react';
 
 const planLevels = {
-  'Starter': 1,
-  'Growth': 2,
-  'Enterprise': 3
+  starter: 1, Starter: 1,
+  growth: 2, Growth: 2,
+  enterprise: 3, Enterprise: 3,
 };
 
 const hasRequiredPlan = (currentPlan, requiredPlan) => {
-  const current = planLevels[currentPlan] || 1;
-  const required = planLevels[requiredPlan] || 1;
+  const norm = (p) => (typeof p === 'string' ? p.toLowerCase() : p);
+  const reqNorm = norm(requiredPlan);
+  const reqKey = reqNorm === 'enterprise' ? 'enterprise' : reqNorm === 'growth' ? 'growth' : 'starter';
+  const current = planLevels[currentPlan] || planLevels[norm(currentPlan)] || 1;
+  const required = planLevels[reqKey] || planLevels[requiredPlan] || 1;
   return current >= required;
 };
+
+const PlanExpiryBanner = ({ brand, setCurrentTab }) => {
+  const ps = brand?.plan_status;
+  if (!ps || ps.status === 'active' || ps.status === 'unlimited') return null;
+  const styles = {
+    expiring_soon: { bg: '#fffbeb', border: '#fcd34d', color: '#92400e', icon: '⏰' },
+    grace: { bg: '#fef2f2', border: '#fca5a5', color: '#991b1b', icon: '⚠️' },
+    expired: { bg: '#450a0a', border: '#ef4444', color: '#fecaca', icon: '🚫' },
+  };
+  const s = styles[ps.status] || styles.grace;
+  return (
+    <div style={{
+      background: s.bg, border: `1px solid ${s.border}`, borderRadius: '12px',
+      padding: '12px 18px', marginBottom: '16px', display: 'flex',
+      alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap',
+      color: s.color, fontSize: '13px',
+    }}>
+      <span>
+        {s.icon} <strong>{ps.is_trial ? 'Deneme süresi' : 'Abonelik'}:</strong>{' '}
+        {ps.message || 'Plan durumunuzu kontrol edin.'}
+        {ps.plan_expiry && <span style={{ opacity: 0.8 }}> (Bitiş: {ps.plan_expiry})</span>}
+      </span>
+      {brand?.usage && brand?.limits && (
+        <span style={{ fontSize: '11px', opacity: 0.85 }}>
+          Şube {brand.usage.branches}/{brand.limits.branches} · Ekip {brand.usage.staff}/{brand.limits.staff}
+        </span>
+      )}
+      <button
+        onClick={() => setCurrentTab('dashboard')}
+        className="btn btn-primary"
+        style={{ padding: '6px 14px', fontSize: '12px', flexShrink: 0 }}
+      >
+        Planı Yenile
+      </button>
+    </div>
+  );
+};
+
+const SUPER_ADMIN_TABS = ['super-dash', 'super-admin'];
+const getHomeTabForUser = (user) => {
+  if (user?.role === 'super_admin') return 'super-dash';
+  return 'dashboard';
+};
+
+const isImpersonatingSession = () => !!localStorage.getItem('original_super_token');
 
 const UpgradePage = ({ requiredPlan, featureName, currentPlan, setCurrentTab }) => {
   return (
@@ -80,25 +132,54 @@ const UpgradePage = ({ requiredPlan, featureName, currentPlan, setCurrentTab }) 
 };
 
 function App() {
+  // Harici franchise paneli — ana panelden tamamen bağımsız
+  const pathname = window.location.pathname.replace(/\/$/, '') || '/';
+  if (pathname === '/franchise') {
+    return <FranchisePortal />;
+  }
+  if (pathname === '/payment/success' || pathname === '/payment/cancel') {
+    const token = localStorage.getItem('auth_token');
+    const handlePaymentComplete = (user) => {
+      if (user) {
+        localStorage.setItem('auth_user', JSON.stringify(user));
+      }
+    };
+    return (
+      <PaymentResult
+        type={pathname === '/payment/success' ? 'success' : 'cancel'}
+        authToken={token}
+        onComplete={handlePaymentComplete}
+      />
+    );
+  }
+
   // URL → tab mapping
   const getTabFromPath = () => {
     const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
-    if (!path || path === '/') return null; // landing page
+    if (!path || path === '/') return null;
+    if (path === 'personnel') return 'team'; // legacy route
     const validTabs = ['dashboard','tables','order-taking','order-panel','kitchen','menu',
-      'recipe-stok','cash-register','personnel','crm','expenses','couriers','reports',
+      'recipe-stok','cash-register','team','franchise-mgmt','crm','expenses','couriers','reports',
       'settings','qr-menu','official-website','extensions','profile','super-admin','super-dash'];
     return validTabs.includes(path) ? path : null;
   };
 
+  const normalizeTab = (tab) => (tab === 'personnel' ? 'team' : tab);
+
   const [isLanding, setIsLanding] = useState(() => {
+    const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
+    if (!path) return true; // Root URL always shows landing page
     const pathTab = getTabFromPath();
-    if (pathTab) return false; // URL has a valid tab path → skip landing
+    if (pathTab) return false;
     const saved = localStorage.getItem('isLanding');
     return saved !== null ? JSON.parse(saved) : true;
   });
   const [currentTab, setCurrentTab] = useState(() => {
     const pathTab = getTabFromPath();
-    return pathTab || localStorage.getItem('currentTab') || 'dashboard';
+    if (pathTab) return pathTab;
+    const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '');
+    if (!path) return 'dashboard';
+    return normalizeTab(localStorage.getItem('currentTab') || 'dashboard');
   });
   const [selectedTable, setSelectedTable] = useState(() => {
     const saved = localStorage.getItem('selectedTable');
@@ -111,6 +192,9 @@ function App() {
 
   const [extensionsSubView, setExtensionsSubView] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchIdState] = useState(() => getSelectedBranchId());
+  const [branchScopeKey, setBranchScopeKey] = useState(() => getSelectedBranchId() || 'all');
 
   // ── Auth state ──
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('auth_token') || null);
@@ -118,6 +202,7 @@ function App() {
     try { return JSON.parse(localStorage.getItem('auth_user')); } catch { return null; }
   });
   const [authLoading, setAuthLoading] = useState(true);
+  const [backendError, setBackendError] = useState(false);
   const [originalSuperToken, setOriginalSuperToken] = useState(null); // For impersonation "return" feature
 
   // Close mobile menu when tab changes
@@ -125,45 +210,125 @@ function App() {
     setMobileMenuOpen(false);
   }, [currentTab]);
 
+  useEffect(() => {
+    const onUnauthorized = () => {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      setAuthToken(null);
+      setCurrentUser(null);
+      setIsLanding(false);
+    };
+    const onPlanExpired = () => setCurrentTab('dashboard');
+    window.addEventListener('auth-unauthorized', onUnauthorized);
+    window.addEventListener('plan-expired', onPlanExpired);
+    return () => {
+      window.removeEventListener('auth-unauthorized', onUnauthorized);
+      window.removeEventListener('plan-expired', onPlanExpired);
+    };
+  }, []);
+
   // ── Validate token on app load ──
   useEffect(() => {
     const validateToken = async () => {
+      try {
+        const healthRes = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/`);
+        if (!healthRes.ok && healthRes.status !== 401) {
+          setBackendError(true);
+          setAuthLoading(false);
+          return;
+        }
+        setBackendError(false);
+      } catch {
+        setBackendError(true);
+        setAuthLoading(false);
+        return;
+      }
+
       const token = localStorage.getItem('auth_token');
       if (!token) { setAuthLoading(false); return; }
       try {
-        const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/auth/me/`, {
-          headers: { 'Authorization': `Token ${token}` },
-        });
+        const res = await apiFetch('/auth/me/');
         if (res.ok) {
           const data = await res.json();
           setCurrentUser(data.user);
           setAuthToken(token);
         } else {
-          // Token invalid
           localStorage.removeItem('auth_token');
           localStorage.removeItem('auth_user');
           setAuthToken(null);
           setCurrentUser(null);
         }
       } catch {
-        // Network error — keep existing state
+        setBackendError(true);
       }
       setAuthLoading(false);
     };
     validateToken();
   }, []);
 
+  // Role-based routing: super admin → super-dash, store users → store panel
+  useEffect(() => {
+    if (authLoading || isLanding || !currentUser) return;
+    const impersonating = isImpersonatingSession() || !!originalSuperToken;
+
+    if (currentUser.role === 'super_admin' && !impersonating) {
+      if (!SUPER_ADMIN_TABS.includes(currentTab)) {
+        setCurrentTab('super-dash');
+      }
+      return;
+    }
+
+    if (currentUser.role !== 'store_owner' && currentTab === 'franchise-mgmt') {
+      setCurrentTab(getHomeTabForUser(currentUser));
+    }
+
+    if (currentUser.role !== 'super_admin' && SUPER_ADMIN_TABS.includes(currentTab)) {
+      setCurrentTab(getHomeTabForUser(currentUser));
+    }
+  }, [currentUser, authLoading, isLanding, currentTab, originalSuperToken]);
+
   const handleLogin = (token, user) => {
+    setBackendError(false);
+    setIsLanding(false);
     setAuthToken(token);
     setCurrentUser(user);
     localStorage.setItem('auth_token', token);
     localStorage.setItem('auth_user', JSON.stringify(user));
-    // Redirect super_admin to super-dash by default
-    if (user?.role === 'super_admin') {
-      setCurrentTab('super-dash');
-    } else {
-      setCurrentTab('dashboard');
+    setCurrentTab(getHomeTabForUser(user));
+  };
+
+  useEffect(() => {
+    if (!authToken || !currentUser || currentUser.role === 'super_admin') {
+      setBranches([]);
+      return;
     }
+    const loadBranches = async () => {
+      try {
+        const res = await apiFetch('/branches/');
+        if (!res.ok) return;
+        const data = await res.json();
+        const active = Array.isArray(data) ? data.filter((b) => b.is_active !== false) : [];
+        setBranches(active);
+        const saved = getSelectedBranchId();
+        if (saved && !active.some((b) => String(b.id) === saved)) {
+          setSelectedBranchId('');
+          setSelectedBranchIdState('');
+          setBranchScopeKey('all');
+        }
+      } catch {
+        /* silent */
+      }
+    };
+    loadBranches();
+  }, [authToken, currentUser]);
+
+  const handleBranchChange = (e) => {
+    const value = e.target.value;
+    setSelectedBranchId(value);
+    setSelectedBranchIdState(value);
+    setBranchScopeKey(value || 'all');
+    setSelectedTable(null);
+    setActiveOrder(null);
   };
 
   // ── Impersonation ──
@@ -184,7 +349,7 @@ function App() {
     const origToken = originalSuperToken || localStorage.getItem('original_super_token');
     if (!origToken) return;
     try {
-      const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/auth/me/`, {
+      const res = await apiFetch('/auth/me/', {
         headers: { 'Authorization': `Token ${origToken}` },
       });
       if (res.ok) {
@@ -205,10 +370,7 @@ function App() {
 
   const handleLogout = () => {
     // Call logout API
-    fetch(`${(import.meta.env.VITE_API_URL || '')}/api/auth/logout/`, {
-      method: 'POST',
-      headers: { 'Authorization': `Token ${authToken}` },
-    }).catch(() => {});
+    apiFetch('/auth/logout/', { method: 'POST' }).catch(() => {});
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('original_super_token');
@@ -240,7 +402,8 @@ function App() {
     { tab: 'menu', label: 'Menü Yönetimi', desc: 'Kategori ve ürün yönetimi', icon: '📋', keywords: 'menü menu yemek ürün kategori' },
     { tab: 'recipe-stok', label: 'Reçete & Stok', desc: 'Malzeme ve stok takibi', icon: '📦', keywords: 'reçete stok malzeme envanter inventory' },
     { tab: 'cash-register', label: 'Kasa İşlemleri', desc: 'Nakit giriş-çıkışları', icon: '💰', keywords: 'kasa nakit ödeme para cash' },
-    { tab: 'personnel', label: 'Personel', desc: 'Çalışan ve rol yönetimi', icon: '👥', keywords: 'personel çalışan garson staff' },
+    { tab: 'team', label: 'Ekip Yönetimi', desc: 'Organizasyon, yetki ve erişim rolleri', icon: '👥', keywords: 'ekip organizasyon yetki rol koordinatör müdür çalışan team' },
+    { tab: 'franchise-mgmt', label: 'Franchise Merkezi', desc: 'Şube oluşturma ve harici panel şifreleri', icon: '🏢', keywords: 'franchise şube panel şifre', role: 'store_owner' },
     { tab: 'crm', label: 'Müşteri CRM', desc: 'Müşteri kayıtları ve iletişim', icon: '📇', keywords: 'müşteri crm rehber customer iletişim' },
     { tab: 'expenses', label: 'Gider Takibi', desc: 'Harcama ve fatura yönetimi', icon: '💸', keywords: 'gider harcama fatura expense masraf' },
     { tab: 'couriers', label: 'Kurye Takibi', desc: 'Teslimat ve avans yönetimi', icon: '🛵', keywords: 'kurye teslimat delivery paket' },
@@ -377,7 +540,7 @@ function App() {
           't': 'tables',
           'k': 'kitchen',
           'r': 'reports',
-          'p': 'personnel',
+          'p': 'team',
           'e': 'expenses',
           'c': 'couriers',
           'g': 'settings',
@@ -431,7 +594,7 @@ function App() {
   useEffect(() => {
     const poll = async () => {
       try {
-        const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/orders/?active=true`);
+        const res = await apiFetch('/orders/?active=true');
         const data = await res.json();
         if (!Array.isArray(data)) return;
         
@@ -458,13 +621,13 @@ function App() {
     poll();
     const interval = setInterval(poll, 8000);
     return () => clearInterval(interval);
-  }, [playDing]);
+  }, [playDing, branchScopeKey]);
 
   // Poll low-stock every 30 seconds
   useEffect(() => {
     const pollStock = async () => {
       try {
-        const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/low-stock/`);
+        const res = await apiFetch('/low-stock/');
         const data = await res.json();
         setLowStockCount(data.count || 0);
       } catch (e) { /* silent */ }
@@ -472,7 +635,7 @@ function App() {
     pollStock();
     const interval = setInterval(pollStock, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [branchScopeKey]);
 
   // Close notification panel on outside click
   useEffect(() => {
@@ -501,7 +664,7 @@ function App() {
 
   const fetchRestaurantProfile = async () => {
     try {
-      const res = await fetch(`${(import.meta.env.VITE_API_URL || '')}/api/restaurant-profile/`);
+      const res = await apiFetch('/restaurant-profile/');
       const data = await res.json();
       if (data && data.length > 0) {
         setRestaurantProfile(data[0]);
@@ -541,7 +704,7 @@ function App() {
         setIsLanding(true);
       } else {
         setIsLanding(false);
-        setCurrentTab(path);
+        setCurrentTab(normalizeTab(path));
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -579,9 +742,13 @@ function App() {
   const renderContent = () => {
     const activePlan = restaurantProfile?.active_plan || 'Growth';
 
+    if (showSuperAdminShell && !SUPER_ADMIN_TABS.includes(currentTab)) {
+      return <SuperDashboard authToken={authToken} onImpersonate={handleImpersonate} />;
+    }
+
     switch (currentTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard currentUser={currentUser} authToken={authToken} setCurrentTab={setCurrentTab} onUserUpdate={handleProfileUpdate} />;
       case 'tables':
         return <Tables onSelectTable={handleSelectTable} />;
       case 'order-taking':
@@ -602,8 +769,13 @@ function App() {
         return <RecipeInventory />;
       case 'cash-register':
         return <CashRegister />;
-      case 'personnel':
-        return <Personnel />;
+      case 'team':
+        return <TeamManagement />;
+      case 'franchise-mgmt':
+        if (!hasRequiredPlan(currentUser?.brand?.plan || 'starter', 'growth')) {
+          return <UpgradePage requiredPlan="Growth" featureName="Franchise Merkezi" currentPlan={currentUser?.brand?.plan_display || currentUser?.brand?.plan || 'Starter'} setCurrentTab={setCurrentTab} />;
+        }
+        return <FranchiseManagement authToken={authToken} currentUser={currentUser} />;
       case 'crm':
         return (
           <Extensions 
@@ -653,7 +825,7 @@ function App() {
       case 'super-dash':
         return <SuperDashboard authToken={authToken} onImpersonate={handleImpersonate} />;
       default:
-        return <Dashboard />;
+        return <Dashboard currentUser={currentUser} authToken={authToken} setCurrentTab={setCurrentTab} onUserUpdate={handleProfileUpdate} />;
     }
   };
 
@@ -675,8 +847,10 @@ function App() {
         return 'Reçete & Stok Yönetimi';
       case 'cash-register':
         return 'Kasa İşlemleri';
-      case 'personnel':
-        return 'Personel Yönetimi';
+      case 'team':
+        return 'Ekip & Yetki Yönetimi';
+      case 'franchise-mgmt':
+        return 'Franchise (Şube) Merkezi';
       case 'crm':
         return 'Müşteri CRM';
       case 'expenses':
@@ -722,8 +896,10 @@ function App() {
         return 'Malzeme stok durumları, reçeteler ve satın alma işlemleri';
       case 'cash-register':
         return 'Nakit giriş-çıkışları, tahsilatlar ve kasa bakiyeleri';
-      case 'personnel':
-        return 'İşletme personelleri, çalışma rolleri ve yetkiler';
+      case 'team':
+        return 'Organizasyon kadrosu, yetki seviyeleri ve erişim rolleri';
+      case 'franchise-mgmt':
+        return 'Franchise oluşturma, harici panel şifreleri ve şube yönetimi';
       case 'crm':
         return 'Müşteri kayıtları, iletişim rehberi, sipariş geçmişleri ve CSV içe/dışa aktarım yönetimi';
       case 'expenses':
@@ -764,6 +940,36 @@ function App() {
     return <LandingPage onLaunchApp={() => setIsLanding(false)} />;
   }
 
+  const isImpersonating = isImpersonatingSession() || !!originalSuperToken;
+  const showSuperAdminShell = currentUser?.role === 'super_admin' && !isImpersonating;
+  const isSuperAdminTab = showSuperAdminShell;
+
+  if (backendError) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--bg-main)', padding: '24px',
+      }}>
+        <div className="card" style={{ maxWidth: '480px', textAlign: 'center', padding: '32px' }}>
+          <ShieldAlert size={40} style={{ color: '#ef4444', marginBottom: '16px' }} />
+          <h2 style={{ margin: '0 0 8px', fontSize: '20px' }}>Sunucuya Bağlanılamıyor</h2>
+          <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', fontSize: '14px', lineHeight: 1.6 }}>
+            Backend çalışmıyor olabilir. Terminalde proje klasöründe şu komutu çalıştırın:
+          </p>
+          <code style={{
+            display: 'block', background: '#f1f5f9', padding: '12px', borderRadius: '8px',
+            fontSize: '13px', marginBottom: '20px', color: '#334155',
+          }}>
+            bash start.sh
+          </code>
+          <button className="btn btn-primary" onClick={() => window.location.reload()}>
+            Yeniden Dene
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Auth loading screen
   if (authLoading) {
     return (
@@ -783,248 +989,291 @@ function App() {
       {mobileMenuOpen && <div className="sidebar-overlay" onClick={() => setMobileMenuOpen(false)} />}
       {/* Sidebar Navigation */}
       <aside className={`sidebar ${mobileMenuOpen ? 'sidebar-open' : ''}`}>
-        <div className="logo-container">
-          <div className="logo-icon">B</div>
-          <span className="logo-text">Bidolu POS</span>
-        </div>
-
-        <nav style={{ flex: 1 }}>
-          <ul className="nav-links" style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: 'calc(100vh - 180px)', overflowY: 'auto', paddingRight: '4px' }}>
-            <li 
-              className={`nav-item ${currentTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('dashboard'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <LayoutGrid size={18} />
-              <span>Yönetim Paneli</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'tables' || currentTab === 'order-taking' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('tables'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <Coffee size={18} />
-              <span>Masa Yönetimi</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'order-panel' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('order-panel'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <ShoppingBag size={18} />
-              <span>Sipariş Paneli</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'kitchen' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('kitchen'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <ChefHat size={18} />
-              <span>Mutfak Ekranı</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'menu' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('menu'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <BookOpen size={18} />
-              <span>Menü Yönetimi</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'recipe-stok' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('recipe-stok'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px', position: 'relative' }}
-            >
-              <Layers size={18} />
-              <span>Reçete & Stok</span>
-              {lowStockCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: '6px', right: '8px',
-                  background: '#ef4444', color: '#fff',
-                  fontSize: '10px', fontWeight: '700',
-                  borderRadius: '10px', padding: '1px 6px',
-                  minWidth: '18px', textAlign: 'center'
-                }}>{lowStockCount}</span>
-              )}
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'cash-register' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('cash-register'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <CreditCard size={18} />
-              <span>Kasa İşlemleri</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'personnel' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('personnel'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <Users size={18} />
-              <span>Personeller</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'crm' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('crm'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <Contact size={18} />
-              <span>Müşteri CRM</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'expenses' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('expenses'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <DollarSign size={18} />
-              <span>Gider Takibi</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'couriers' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('couriers'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <Truck size={18} />
-              <span>Kurye Takibi</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'reports' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('reports'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <PieChart size={18} />
-              <span>Raporlar</span>
-            </li>
-            <li 
-              className={`nav-item ${currentTab === 'extensions' && extensionsSubView === null ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('extensions'); setExtensionsSubView(null); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <Puzzle size={18} />
-              <span>Eklentiler</span>
-            </li>
-            
-            {/* Indented Sub-menu for active extensions */}
-            <div style={{ 
-              paddingLeft: '16px', 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '4px', 
-              borderLeft: '1px solid rgba(0,0,0,0.06)', 
-              marginLeft: '22px', 
-              marginBottom: '10px', 
-              marginTop: '2px' 
-            }}>
-              {restaurantProfile.ext_qr_menu_enabled && hasRequiredPlan(restaurantProfile.active_plan, 'Growth') && (
-                <div 
-                  className={`nav-item ${currentTab === 'qr-menu' ? 'active' : ''}`}
-                  onClick={() => { setCurrentTab('qr-menu'); setSelectedTable(null); }}
-                  style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
-                >
-                  <QrCode size={14} />
-                  <span>QR Menü</span>
-                </div>
-              )}
-              {restaurantProfile.ext_official_website_enabled && hasRequiredPlan(restaurantProfile.active_plan, 'Growth') && (
-                <div 
-                  className={`nav-item ${currentTab === 'official-website' ? 'active' : ''}`}
-                  onClick={() => { setCurrentTab('official-website'); setSelectedTable(null); }}
-                  style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
-                >
-                  <Globe size={14} />
-                  <span>Web Sitesi</span>
-                </div>
-              )}
-              {/* Müşteri CRM has been promoted to a core sidebar item */}
-              {restaurantProfile.ext_whatsapp_enabled && hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') && (
-                <div 
-                  className={`nav-item ${currentTab === 'extensions' && extensionsSubView === 'whatsapp' ? 'active' : ''}`}
-                  onClick={() => { setCurrentTab('extensions'); setExtensionsSubView('whatsapp'); setSelectedTable(null); }}
-                  style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
-                >
-                  <MessageSquare size={14} />
-                  <span>WhatsApp API</span>
-                </div>
-              )}
+        {isSuperAdminTab ? (
+          <>
+            <div className="logo-container" style={{ borderBottom: '1px solid rgba(220,38,38,0.1)', paddingBottom: '16px' }}>
+              <div className="logo-icon" style={{ background: 'linear-gradient(135deg, #dc2626, #f87171)' }}>S</div>
+              <span className="logo-text" style={{ color: '#ef4444', fontWeight: '800' }}>Süper Yönetim</span>
             </div>
-            <li 
-              className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}
-              onClick={() => { setCurrentTab('settings'); setSelectedTable(null); }}
-              style={{ padding: '10px 12px', fontSize: '13px' }}
-            >
-              <Settings size={18} />
-              <span>Ayarlar</span>
-            </li>
-          </ul>
-        </nav>
 
-        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--panel-border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {/* User Profile mini card */}
-          <div 
-            className={`nav-item ${currentTab === 'profile' ? 'active' : ''}`}
-            onClick={() => { setCurrentTab('profile'); setSelectedTable(null); }}
-            style={{ padding: '10px 12px', fontSize: '13px', cursor: 'pointer' }}
-          >
-            <UserCircle size={18} />
-            <span>{currentUser?.first_name || currentUser?.username || 'Profil'}</span>
-          </div>
+            <nav className="sidebar-nav" style={{ marginTop: '8px' }}>
+              <ul className="nav-links" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <li 
+                  className={`nav-item ${currentTab === 'super-dash' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('super-dash'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <ShieldAlert size={18} />
+                  <span>Markalar & Planlar</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'super-admin' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('super-admin'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <Users size={18} />
+                  <span>Kullanıcı Yönetimi</span>
+                </li>
+              </ul>
+            </nav>
 
-          {/* Super Admin — only for super_admin role */}
-          {currentUser?.role === 'super_admin' && (
-            <>
-              <li 
-                className={`nav-item ${currentTab === 'super-dash' ? 'active' : ''}`}
-                onClick={() => { setCurrentTab('super-dash'); setSelectedTable(null); }}
-                style={{ padding: '10px 12px', fontSize: '13px' }}
+            <div className="sidebar-footer">
+              <button
+                onClick={() => { setCurrentTab('dashboard'); setSelectedTable(null); }}
+                style={{
+                  width: '100%', padding: '10px 12px', fontSize: '13px', display: 'flex', gap: '8px',
+                  alignItems: 'center', background: 'rgba(99,102,241,0.08)', color: 'var(--primary)',
+                  border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', cursor: 'pointer',
+                  fontWeight: '600', fontFamily: 'inherit', margin: '4px 0'
+                }}
               >
-                <ShieldAlert size={18} />
-                <span>Süper Yönetim</span>
-              </li>
-              <li 
-                className={`nav-item ${currentTab === 'super-admin' ? 'active' : ''}`}
-                onClick={() => { setCurrentTab('super-admin'); setSelectedTable(null); }}
-                style={{ padding: '10px 12px', fontSize: '12px', opacity: 0.7 }}
+                <ArrowLeft size={16} />
+                <span>Restoran Paneline Git</span>
+              </button>
+
+              <button 
+                onClick={() => setIsLanding(true)} 
+                className="btn btn-secondary" 
+                style={{ width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', marginTop: '4px' }}
               >
-                <Users size={16} />
-                <span>Kullanıcı Yönetimi</span>
-              </li>
-            </>
-          )}
+                <ArrowLeft size={14} /> Tanıtım Sayfası
+              </button>
 
-          {/* Return to Super Admin — when impersonating */}
-          {(originalSuperToken || localStorage.getItem('original_super_token')) && (
-            <button
-              onClick={handleReturnToSuperAdmin}
-              style={{
-                width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px',
-                justifyContent: 'center', alignItems: 'center', marginTop: '4px',
-                background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)',
-                borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit',
-              }}
-            >
-              <ShieldAlert size={14} /> Süper Admin'e Dön
-            </button>
-          )}
+              <button 
+                onClick={handleLogout} 
+                style={{ 
+                  width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center',
+                  background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)',
+                  borderRadius: '10px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s'
+                }}
+              >
+                <LogOut size={14} /> Çıkış Yap
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="logo-container">
+              <div className="logo-icon">B</div>
+              <span className="logo-text">Bidolu POS</span>
+            </div>
 
-          <button 
-            onClick={() => setIsLanding(true)} 
-            className="btn btn-secondary" 
-            style={{ width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', marginTop: '4px' }}
-          >
-            <ArrowLeft size={14} /> Tanıtım Sayfası
-          </button>
+            <nav className="sidebar-nav">
+              <ul className="nav-links" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <li 
+                  className={`nav-item ${currentTab === 'dashboard' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('dashboard'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <LayoutGrid size={18} />
+                  <span>Yönetim Paneli</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'tables' || currentTab === 'order-taking' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('tables'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <Coffee size={18} />
+                  <span>Masa Yönetimi</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'order-panel' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('order-panel'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <ShoppingBag size={18} />
+                  <span>Sipariş Paneli</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'kitchen' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('kitchen'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <ChefHat size={18} />
+                  <span>Mutfak Ekranı</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'menu' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('menu'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <BookOpen size={18} />
+                  <span>Menü Yönetimi</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'recipe-stok' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('recipe-stok'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px', position: 'relative' }}
+                >
+                  <Layers size={18} />
+                  <span>Reçete & Stok</span>
+                  {lowStockCount > 0 && (
+                    <span style={{
+                      position: 'absolute', top: '6px', right: '8px',
+                      background: '#ef4444', color: '#fff',
+                      fontSize: '10px', fontWeight: '700',
+                      borderRadius: '10px', padding: '1px 6px',
+                      minWidth: '18px', textAlign: 'center'
+                    }}>{lowStockCount}</span>
+                  )}
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'cash-register' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('cash-register'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <CreditCard size={18} />
+                  <span>Kasa İşlemleri</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'team' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('team'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <Users size={18} />
+                  <span>Ekip Yönetimi</span>
+                </li>
+                {currentUser?.role === 'store_owner' && hasRequiredPlan(currentUser?.brand?.plan || 'starter', 'growth') && (
+                  <li 
+                    className={`nav-item ${currentTab === 'franchise-mgmt' ? 'active' : ''}`}
+                    onClick={() => { setCurrentTab('franchise-mgmt'); setSelectedTable(null); }}
+                    style={{ padding: '10px 12px', fontSize: '13px' }}
+                  >
+                    <GitBranch size={18} />
+                    <span>Franchise Merkezi</span>
+                  </li>
+                )}
+                <li 
+                  className={`nav-item ${currentTab === 'crm' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('crm'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <Contact size={18} />
+                  <span>Müşteri CRM</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'expenses' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('expenses'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <DollarSign size={18} />
+                  <span>Gider Takibi</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'couriers' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('couriers'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <Truck size={18} />
+                  <span>Kurye Takibi</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'reports' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('reports'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <PieChart size={18} />
+                  <span>Raporlar</span>
+                </li>
+                <li 
+                  className={`nav-item ${currentTab === 'extensions' && extensionsSubView === null ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('extensions'); setExtensionsSubView(null); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <Puzzle size={18} />
+                  <span>Eklentiler</span>
+                </li>
+                
+                {/* Indented Sub-menu for active extensions */}
+                <div style={{ 
+                  paddingLeft: '16px', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '4px', 
+                  borderLeft: '1px solid rgba(0,0,0,0.06)', 
+                  marginLeft: '22px', 
+                  marginBottom: '10px', 
+                  marginTop: '2px' 
+                }}>
+                  {restaurantProfile.ext_qr_menu_enabled && hasRequiredPlan(restaurantProfile.active_plan, 'Growth') && (
+                    <div 
+                      className={`nav-item ${currentTab === 'qr-menu' ? 'active' : ''}`}
+                      onClick={() => { setCurrentTab('qr-menu'); setSelectedTable(null); }}
+                      style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
+                    >
+                      <QrCode size={14} />
+                      <span>QR Menü</span>
+                    </div>
+                  )}
+                  {restaurantProfile.ext_official_website_enabled && hasRequiredPlan(restaurantProfile.active_plan, 'Growth') && (
+                    <div 
+                      className={`nav-item ${currentTab === 'official-website' ? 'active' : ''}`}
+                      onClick={() => { setCurrentTab('official-website'); setSelectedTable(null); }}
+                      style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
+                    >
+                      <Globe size={14} />
+                      <span>Web Sitesi</span>
+                    </div>
+                  )}
+                  {restaurantProfile.ext_whatsapp_enabled && hasRequiredPlan(restaurantProfile.active_plan, 'Enterprise') && (
+                    <div 
+                      className={`nav-item ${currentTab === 'extensions' && extensionsSubView === 'whatsapp' ? 'active' : ''}`}
+                      onClick={() => { setCurrentTab('extensions'); setExtensionsSubView('whatsapp'); setSelectedTable(null); }}
+                      style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}
+                    >
+                      <MessageSquare size={14} />
+                      <span>WhatsApp API</span>
+                    </div>
+                  )}
+                </div>
+                <li 
+                  className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`}
+                  onClick={() => { setCurrentTab('settings'); setSelectedTable(null); }}
+                  style={{ padding: '10px 12px', fontSize: '13px' }}
+                >
+                  <Settings size={18} />
+                  <span>Ayarlar</span>
+                </li>
+              </ul>
+            </nav>
 
-          <button 
-            onClick={handleLogout} 
-            style={{ 
-              width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center',
-              background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)',
-              borderRadius: '10px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s'
-            }}
-          >
-            <LogOut size={14} /> Çıkış Yap
-          </button>
-        </div>
+            <div className="sidebar-footer">
+              {/* Return to Super Admin — when impersonating */}
+              {(originalSuperToken || localStorage.getItem('original_super_token')) && (
+                <button
+                  onClick={handleReturnToSuperAdmin}
+                  style={{
+                    width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px',
+                    justifyContent: 'center', alignItems: 'center', marginTop: '4px',
+                    background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)',
+                    borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit',
+                  }}
+                >
+                  <ShieldAlert size={14} /> Süper Admin'e Dön
+                </button>
+              )}
+
+              <button 
+                onClick={() => setIsLanding(true)} 
+                className="btn btn-secondary" 
+                style={{ width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', marginTop: '4px' }}
+              >
+                <ArrowLeft size={14} /> Tanıtım Sayfası
+              </button>
+
+              <button 
+                onClick={handleLogout} 
+                style={{ 
+                  width: '100%', padding: '8px 14px', fontSize: '12px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center',
+                  background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)',
+                  borderRadius: '10px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s'
+                }}
+              >
+                <LogOut size={14} /> Çıkış Yap
+              </button>
+            </div>
+          </>
+        )}
       </aside>
 
       {/* Main Content Pane */}
@@ -1038,6 +1287,44 @@ function App() {
             <p>{getPageSubtitle()}</p>
           </div>
           <div className="header-actions">
+            {!showSuperAdminShell && branches.length > 0 && (
+              <div
+                className="date-badge"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  background: 'rgba(16,185,129,0.08)', color: '#059669',
+                  border: '1px solid rgba(16,185,129,0.25)', padding: '6px 10px',
+                }}
+                title="Şube filtresi — seçili şubenin masaları, siparişleri ve kasası"
+              >
+                <GitBranch size={16} />
+                <select
+                  value={selectedBranchId}
+                  onChange={handleBranchChange}
+                  style={{
+                    background: 'transparent', border: 'none', color: 'inherit',
+                    fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+                    fontFamily: 'inherit', maxWidth: '160px',
+                  }}
+                >
+                  <option value="">Tüm Şubeler</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={String(b.id)}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {/* Shortcuts help button */}
+            <div 
+              className="date-badge" 
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: 'rgba(99,102,241,0.08)', color: 'var(--primary)', border: '1px solid rgba(99,102,241,0.2)' }}
+              onClick={() => setShowShortcuts(true)}
+              title="Klavye Kısayolları (?)"
+            >
+              <HelpCircle size={16} />
+              <span>Kısayollar</span>
+            </div>
+            
             <div className="date-badge" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Calendar size={16} />
               <span>{formattedDate}</span>
@@ -1099,11 +1386,51 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* Logged in User Profile */}
+            <div 
+              onClick={() => { setCurrentTab('profile'); setSelectedTable(null); }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 12px',
+                borderRadius: '10px',
+                background: 'rgba(99,102,241,0.05)',
+                border: '1px solid rgba(99,102,241,0.1)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              className="user-profile-header-card"
+            >
+              {currentUser?.profile?.avatar || currentUser?.avatar ? (
+                <img 
+                  src={currentUser?.profile?.avatar || currentUser?.avatar} 
+                  alt="avatar" 
+                  style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} 
+                />
+              ) : (
+                <UserCircle size={18} style={{ color: 'var(--primary)' }} />
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', lineHeight: 1.2 }}>
+                  {currentUser?.first_name || currentUser?.username}
+                </span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                  {currentUser?.role_display || 'Kullanıcı'}
+                </span>
+              </div>
+            </div>
           </div>
         </header>
 
         <section>
-          {renderContent()}
+          {currentUser?.role !== 'super_admin' && (
+            <PlanExpiryBanner brand={currentUser?.brand} setCurrentTab={setCurrentTab} />
+          )}
+          <div key={branchScopeKey}>
+            {renderContent()}
+          </div>
         </section>
       </main>
 
@@ -1261,7 +1588,7 @@ function App() {
                   ['K', 'Mutfak'],
                   ['M', 'Menü'],
                   ['R', 'Raporlar'],
-                  ['P', 'Personel'],
+                  ['P', 'Ekip Yönetimi'],
                   ['E', 'Giderler'],
                   ['C', 'Kuryeler'],
                   ['S', 'Reçete & Stok'],

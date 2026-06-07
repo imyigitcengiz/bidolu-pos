@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Users, Plus, Edit3, Trash2, Shield, ShieldCheck, ShieldAlert, X, Save, Eye, EyeOff, UserCog, Check, AlertTriangle } from 'lucide-react';
 import { useResponsive } from '../hooks/useResponsive';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 const ROLE_CONFIG = {
   super_admin: { label: 'Süper Yönetici', color: '#dc2626', bg: '#fef2f2', icon: ShieldAlert },
-  admin: { label: 'Yönetici', color: '#7c3aed', bg: '#f5f3ff', icon: ShieldCheck },
-  manager: { label: 'Müdür', color: '#2563eb', bg: '#eff6ff', icon: Shield },
-  staff: { label: 'Personel', color: '#059669', bg: '#ecfdf5', icon: UserCog },
-  waiter: { label: 'Garson', color: '#d97706', bg: '#fffbeb', icon: Users },
+  store_owner: { label: 'Kurum Yöneticisi', color: '#7c3aed', bg: '#f5f3ff', icon: ShieldCheck },
+  manager: { label: 'Operasyon Müdürü', color: '#2563eb', bg: '#eff6ff', icon: Shield },
+  waiter: { label: 'Servis Sorumlusu', color: '#d97706', bg: '#fffbeb', icon: Users },
+  cashier: { label: 'Finans Sorumlusu', color: '#059669', bg: '#ecfdf5', icon: UserCog },
+  kitchen: { label: 'Üretim Sorumlusu', color: '#0891b2', bg: '#ecfeff', icon: UserCog },
 };
 
 export default function SuperAdminPanel({ authToken }) {
@@ -24,7 +25,7 @@ export default function SuperAdminPanel({ authToken }) {
   // Form state
   const [formData, setFormData] = useState({
     username: '', password: '', first_name: '', last_name: '',
-    email: '', phone: '', role: 'staff',
+    email: '', phone: '', role: 'store_owner',
   });
 
   const headers = {
@@ -35,7 +36,7 @@ export default function SuperAdminPanel({ authToken }) {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/auth/users/`, { headers });
+      const res = await apiFetch(`${API_BASE}/auth/users/`, { headers });
       const data = await res.json();
       if (Array.isArray(data)) setUsers(data);
     } catch (err) {
@@ -49,7 +50,7 @@ export default function SuperAdminPanel({ authToken }) {
 
   const openAddModal = () => {
     setEditUser(null);
-    setFormData({ username: '', password: '', first_name: '', last_name: '', email: '', phone: '', role: 'staff' });
+    setFormData({ username: '', password: '', first_name: '', last_name: '', email: '', phone: '', role: 'store_owner' });
     setError('');
     setShowModal(true);
   };
@@ -73,7 +74,7 @@ export default function SuperAdminPanel({ authToken }) {
         // PATCH existing user
         const payload = { ...formData };
         if (!payload.password) delete payload.password;
-        const res = await fetch(`${API_BASE}/auth/users/${editUser.id}/`, {
+        const res = await apiFetch(`${API_BASE}/auth/users/${editUser.id}/`, {
           method: 'PATCH', headers, body: JSON.stringify(payload),
         });
         const data = await res.json();
@@ -84,7 +85,7 @@ export default function SuperAdminPanel({ authToken }) {
         if (!formData.username || !formData.password) {
           setError('Kullanıcı adı ve şifre zorunludur.'); return;
         }
-        const res = await fetch(`${API_BASE}/auth/register/`, {
+        const res = await apiFetch(`${API_BASE}/auth/register/`, {
           method: 'POST', headers, body: JSON.stringify(formData),
         });
         const data = await res.json();
@@ -103,7 +104,7 @@ export default function SuperAdminPanel({ authToken }) {
   const handleDelete = async (userId) => {
     if (!confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz?')) return;
     try {
-      const res = await fetch(`${API_BASE}/auth/users/${userId}/`, { method: 'DELETE', headers });
+      const res = await apiFetch(`${API_BASE}/auth/users/${userId}/`, { method: 'DELETE', headers });
       if (res.ok) {
         setSuccess('Kullanıcı silindi.');
         fetchUsers();
@@ -116,7 +117,7 @@ export default function SuperAdminPanel({ authToken }) {
 
   const handleToggleActive = async (user) => {
     try {
-      await fetch(`${API_BASE}/auth/users/${user.id}/`, {
+      await apiFetch(`${API_BASE}/auth/users/${user.id}/`, {
         method: 'PATCH', headers,
         body: JSON.stringify({ is_active: !user.is_active }),
       });
@@ -172,7 +173,7 @@ export default function SuperAdminPanel({ authToken }) {
               </thead>
               <tbody>
                 {users.map((user) => {
-                  const roleCfg = ROLE_CONFIG[user.role] || ROLE_CONFIG.staff;
+                  const roleCfg = ROLE_CONFIG[user.role] || ROLE_CONFIG.store_owner;
                   const RoleIcon = roleCfg.icon;
                   return (
                     <tr key={user.id} style={{ borderBottom: '1px solid var(--panel-border)', transition: 'background 0.15s' }}

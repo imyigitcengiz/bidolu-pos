@@ -10,6 +10,12 @@ from .models import (
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
     StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
     CashTransaction, StockAudit, StockAuditItem, Customer, WhatsAppConfig,
+    Branch,
+)
+from .branch_scope import filter_by_tenant, resolve_branch_for_user
+from .tenant_helpers import (
+    get_tenant_table, get_tenant_menu_item, get_tenant_ingredient,
+    get_tenant_order, get_tenant_register, get_user_brand,
 )
 from .serializers import (
     TableSerializer, CategorySerializer, MenuItemSerializer, MenuItemModifierSerializer,
@@ -18,12 +24,70 @@ from .serializers import (
     RecipeSerializer, RecipeIngredientSerializer, StaffMemberSerializer,
     ExpenseSerializer, CourierSerializer, CourierLogSerializer,
     RestaurantProfileSerializer, CashTransactionSerializer, StockAuditSerializer,
-    CustomerSerializer, WhatsAppConfigSerializer,
+    CustomerSerializer, WhatsAppConfigSerializer, BranchSerializer,
 )
 
+def filter_by_brand(queryset, request, brand_field='brand'):
+    user = request.user
+    if not user.is_authenticated:
+        return queryset.none()
+    profile = getattr(user, 'profile', None)
+    if profile and profile.role != 'super_admin':
+        if profile.brand:
+            filter_kwargs = {brand_field: profile.brand}
+            return queryset.filter(**filter_kwargs)
+        else:
+            return queryset.model.objects.none()
+    return queryset
+
+def assign_brand(serializer, request):
+    from rest_framework.exceptions import PermissionDenied
+    user = request.user
+    profile = getattr(user, 'profile', None)
+    if profile and profile.brand:
+        serializer.save(brand=profile.brand)
+    elif profile and profile.role == 'super_admin':
+        brand_id = request.data.get('brand')
+        if brand_id:
+            serializer.save(brand_id=brand_id)
+        else:
+            serializer.save()
+    else:
+        raise PermissionDenied('Marka bilgisi bulunamadı. Kayıt oluşturulamadı.')
+
+DEFAULT_BRANCH_TABLES = [
+    ('Masa 1', 4), ('Masa 2', 2), ('Masa 3', 6), ('Masa 4', 4),
+    ('Paket Servis', 1), ('Teras 1', 4),
+]
+
+
+def _seed_branch_tables(branch):
+    for name, capacity in DEFAULT_BRANCH_TABLES:
+        Table.objects.get_or_create(
+            brand=branch.brand, branch=branch, name=name,
+            defaults={'capacity': capacity, 'status': 'empty'},
+        )
+    CashRegister.objects.get_or_create(
+        brand=branch.brand, branch=branch, name=f'{branch.name} Kasası',
+        defaults={'balance': 0.00, 'location': branch.name},
+    )
+
+
 class TableViewSet(viewsets.ModelViewSet):
-    queryset = Table.objects.all().order_by('name')
     serializer_class = TableSerializer
+
+    def get_queryset(self):
+        return filter_by_tenant(Table.objects.all().order_by('name'), self.request)
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        profile = getattr(user, 'profile', None)
+        branch_id = self.request.data.get('branch')
+        branch = resolve_branch_for_user(self.request, branch_id) if branch_id else None
+        if profile and profile.brand:
+            serializer.save(brand=profile.brand, branch=branch)
+        else:
+            assign_brand(serializer, self.request)
 
     @action(detail=True, methods=['post'])
     def change_status(self, request, pk=None):
@@ -36,26 +100,34 @@ class TableViewSet(viewsets.ModelViewSet):
         return Response({'error': 'Geçersiz durum'}, status=status.HTTP_400_BAD_REQUEST)
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all().order_by('name')
     serializer_class = CategorySerializer
 
+    def get_queryset(self):
+        return filter_by_brand(Category.objects.all().order_by('name'), self.request)
+
+    def perform_create(self, serializer):
+        assign_brand(serializer, self.request)
+
 class MenuItemViewSet(viewsets.ModelViewSet):
-    queryset = MenuItem.objects.all().order_by('name')
     serializer_class = MenuItemSerializer
 
     def get_queryset(self):
         queryset = MenuItem.objects.all().order_by('name')
+        queryset = filter_by_brand(queryset, self.request)
         category_id = self.request.query_params.get('category', None)
         if category_id is not None:
             queryset = queryset.filter(category_id=category_id)
         return queryset
 
+    def perform_create(self, serializer):
+        assign_brand(serializer, self.request)
+
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all().order_by('-id')
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        queryset = Order.objects.all().order_by('-id')
+        queryset = Order.objects.select_related('table', 'branch').order_by('-id')
+        queryset = filter_by_tenant(queryset, self.request)
         table_id = self.request.query_params.get('table', None)
         active_only = self.request.query_params.get('active', None)
         
@@ -68,28 +140,31 @@ class OrderViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         table_id = request.data.get('table')
         items_data = request.data.get('items', [])
-        
-        try:
-            table = Table.objects.get(id=table_id)
-        except Table.DoesNotExist:
-            return Response({'error': 'Masa bulunamadı'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Update table status to occupied
+
+        table, err = get_tenant_table(request.user, table_id)
+        if err:
+            return err
+
         table.status = 'occupied'
         table.save()
-        
-        # Check if there is already an active order for this table
+
+        profile = getattr(request.user, 'profile', None)
+        brand = table.brand or (profile.brand if profile else None)
+
         active_order = Order.objects.filter(table=table).exclude(status__in=['completed', 'cancelled']).first()
         if active_order:
             order = active_order
         else:
-            order = Order.objects.create(table=table, status='preparing')
-        
+            order = Order.objects.create(
+                table=table, status='preparing', brand=brand, branch=table.branch,
+            )
+
         total_amount = order.total_amount
         for item in items_data:
-            try:
-                menu_item = MenuItem.objects.get(id=item['menu_item'])
-            except MenuItem.DoesNotExist:
+            menu_item, item_err = get_tenant_menu_item(request.user, item.get('menu_item'))
+            if item_err:
+                continue
+            if not menu_item:
                 continue
             
             quantity = int(item.get('quantity', 1))
@@ -129,7 +204,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             amount_decimal = float(amount)
         except ValueError:
             return Response({'error': 'Geçersiz tutar'}, status=status.HTTP_400_BAD_REQUEST)
-
+ 
         # Atomically record payment, register transaction, update order/table
         with transaction.atomic():
             # Record payment
@@ -142,16 +217,33 @@ class OrderViewSet(viewsets.ModelViewSet):
             # Update order status to completed
             order.status = 'completed'
             order.save()
+
+            # Deduct ingredient stocks automatically based on recipes
+            for item in order.items.all():
+                if hasattr(item.menu_item, 'recipe'):
+                    recipe = item.menu_item.recipe
+                    for recipe_ingredient in recipe.ingredients.all():
+                        ingredient = recipe_ingredient.ingredient
+                        deduction_qty = float(recipe_ingredient.quantity) * item.quantity
+                        ingredient.stock_quantity = float(ingredient.stock_quantity) - deduction_qty
+                        ingredient.save()
             
             # Empty the table
             table = order.table
             table.status = 'empty'
             table.save()
 
-            # Record in Cash Register
-            register = CashRegister.objects.first()
+            brand = order.brand
+            branch = order.branch or table.branch
+            register = None
+            if branch:
+                register = CashRegister.objects.filter(brand=brand, branch=branch).first()
             if not register:
-                register = CashRegister.objects.create(name='Ana Kasa', balance=0.00, location='Merkez')
+                register = CashRegister.objects.filter(brand=brand, branch__isnull=True).first()
+            if not register:
+                register = CashRegister.objects.create(
+                    brand=brand, branch=branch, name='Ana Kasa', balance=0.00, location='Merkez',
+                )
             
             # Log CashTransaction (which will automatically increment the register balance!)
             CashTransaction.objects.create(
@@ -164,12 +256,13 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Check WhatsApp Auto Message
         whatsapp_simulated = None
         try:
-            profile = RestaurantProfile.objects.first()
+            brand = order.brand
+            profile = RestaurantProfile.objects.filter(brand=brand).first()
             if profile and profile.ext_whatsapp_enabled:
-                wa_config = WhatsAppConfig.objects.first()
+                wa_config = WhatsAppConfig.objects.filter(brand=brand).first()
                 if wa_config and wa_config.is_auto_message_enabled:
                     # Select a customer (either first customer or mock name)
-                    customer = Customer.objects.first()
+                    customer = Customer.objects.filter(brand=brand).first()
                     cust_name = customer.name if customer else "Değerli Müşterimiz"
                     cust_phone = customer.phone if customer else "0555 555 55 55"
                     
@@ -216,8 +309,18 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(OrderSerializer(order).data)
 
 class OrderItemViewSet(viewsets.ModelViewSet):
-    queryset = OrderItem.objects.all().order_by('-id')
     serializer_class = OrderItemSerializer
+
+    def get_queryset(self):
+        return filter_by_brand(OrderItem.objects.all().order_by('-id'), self.request, brand_field='order__brand')
+
+    def perform_create(self, serializer):
+        order_id = self.request.data.get('order')
+        order, err = get_tenant_order(self.request.user, order_id)
+        if err:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(err.data.get('error', 'Yetkisiz erişim.'))
+        serializer.save(order=order)
 
     @action(detail=True, methods=['post'])
     def change_status(self, request, pk=None):
@@ -240,22 +343,52 @@ class OrderItemViewSet(viewsets.ModelViewSet):
 
 class DashboardStatsView(views.APIView):
     def get(self, request):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({'error': 'Kimlik doğrulaması gerekli'}, status=401)
+        profile = getattr(user, 'profile', None)
+        brand = profile.brand if profile else None
+
         today = timezone.localtime().date()
         start_of_today = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.min.time()))
         
         # Total revenue today
-        today_payments = Payment.objects.filter(created_at__gte=start_of_today)
+        payments_qs = Payment.objects.all()
+        tables_qs = Table.objects.all()
+        orders_qs = Order.objects.all()
+        order_items_qs = OrderItem.objects.all()
+        
+        if profile and profile.role != 'super_admin':
+            payments_qs = payments_qs.filter(order__brand=brand)
+            tables_qs = tables_qs.filter(brand=brand)
+            orders_qs = orders_qs.filter(brand=brand)
+            order_items_qs = order_items_qs.filter(order__brand=brand)
+
+        branch_id = request.query_params.get('branch_id')
+        if branch_id:
+            try:
+                bid = int(branch_id)
+                branch = resolve_branch_for_user(request, bid)
+                if branch:
+                    payments_qs = payments_qs.filter(order__branch_id=bid)
+                    tables_qs = tables_qs.filter(branch_id=bid)
+                    orders_qs = orders_qs.filter(branch_id=bid)
+                    order_items_qs = order_items_qs.filter(order__branch_id=bid)
+            except (TypeError, ValueError):
+                pass
+
+        today_payments = payments_qs.filter(created_at__gte=start_of_today)
         today_revenue = today_payments.aggregate(total=Sum('amount'))['total'] or 0.00
         
         # Active tables
-        active_tables = Table.objects.exclude(status='empty').count()
-        empty_tables = Table.objects.filter(status='empty').count()
+        active_tables = tables_qs.exclude(status='empty').count()
+        empty_tables = tables_qs.filter(status='empty').count()
         
         # Active orders (preparing or ready)
-        active_orders = Order.objects.filter(status__in=['preparing', 'ready']).count()
+        active_orders = orders_qs.filter(status__in=['preparing', 'ready']).count()
         
         # Popular items (top 5)
-        popular = OrderItem.objects.filter(
+        popular = order_items_qs.filter(
             order__status='completed'
         ).values(
             name=F('menu_item__name')
@@ -279,7 +412,7 @@ class DashboardStatsView(views.APIView):
             day_start = timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time()))
             day_end = timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.max.time()))
             
-            day_revenue = Payment.objects.filter(
+            day_revenue = payments_qs.filter(
                 created_at__range=(day_start, day_end)
             ).aggregate(total=Sum('amount'))['total'] or 0.00
             
@@ -299,41 +432,67 @@ class DashboardStatsView(views.APIView):
         })
 
 class OrderChannelViewSet(viewsets.ModelViewSet):
-    queryset = OrderChannel.objects.all().order_by('name')
     serializer_class = OrderChannelSerializer
 
+    def get_queryset(self):
+        return filter_by_brand(OrderChannel.objects.all().order_by('name'), self.request)
+
+    def perform_create(self, serializer):
+        assign_brand(serializer, self.request)
+
 class CashRegisterViewSet(viewsets.ModelViewSet):
-    queryset = CashRegister.objects.all().order_by('name')
     serializer_class = CashRegisterSerializer
 
+    def get_queryset(self):
+        return filter_by_tenant(CashRegister.objects.select_related('branch').order_by('name'), self.request)
+
+    def perform_create(self, serializer):
+        assign_brand(serializer, self.request)
+
 class IngredientViewSet(viewsets.ModelViewSet):
-    queryset = Ingredient.objects.all().order_by('name')
     serializer_class = IngredientSerializer
 
+    def get_queryset(self):
+        return filter_by_brand(Ingredient.objects.all().order_by('name'), self.request)
+
+    def perform_create(self, serializer):
+        assign_brand(serializer, self.request)
+
 class RecipeViewSet(viewsets.ModelViewSet):
-    queryset = Recipe.objects.all().order_by('id')
     serializer_class = RecipeSerializer
 
+    def get_queryset(self):
+        return filter_by_brand(Recipe.objects.all().order_by('id'), self.request, brand_field='menu_item__brand')
+
 class RecipeIngredientViewSet(viewsets.ModelViewSet):
-    queryset = RecipeIngredient.objects.all().order_by('id')
     serializer_class = RecipeIngredientSerializer
 
+    def get_queryset(self):
+        return filter_by_brand(RecipeIngredient.objects.all().order_by('id'), self.request, brand_field='recipe__menu_item__brand')
+
 class StaffMemberViewSet(viewsets.ModelViewSet):
-    queryset = StaffMember.objects.all().order_by('id')
     serializer_class = StaffMemberSerializer
 
+    def get_queryset(self):
+        return filter_by_brand(StaffMember.objects.all().order_by('id'), self.request, brand_field='user__profile__brand')
+
 class ExpenseViewSet(viewsets.ModelViewSet):
-    queryset = Expense.objects.all().order_by('-date')
     serializer_class = ExpenseSerializer
+
+    def get_queryset(self):
+        return filter_by_brand(Expense.objects.all().order_by('-date'), self.request, brand_field='staff_member__user__profile__brand')
 
     def perform_create(self, serializer):
         with transaction.atomic():
             expense = serializer.save()
             
-            # Find default cash register
-            register = CashRegister.objects.first()
+            # Find default cash register for user's brand
+            user = self.request.user
+            profile = getattr(user, 'profile', None)
+            brand = profile.brand if profile else None
+            register = CashRegister.objects.filter(brand=brand).first()
             if not register:
-                register = CashRegister.objects.create(name='Ana Kasa', balance=0.00, location='Merkez')
+                register = CashRegister.objects.create(brand=brand, name='Ana Kasa', balance=0.00, location='Merkez')
             
             # Log CashTransaction (which will automatically deduct the register balance!)
             CashTransaction.objects.create(
@@ -344,19 +503,30 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             )
 
 class CashTransactionViewSet(viewsets.ModelViewSet):
-    queryset = CashTransaction.objects.all().order_by('-id')
     serializer_class = CashTransactionSerializer
 
     def get_queryset(self):
         queryset = CashTransaction.objects.all().order_by('-id')
+        queryset = filter_by_brand(queryset, self.request, brand_field='register__brand')
         register_id = self.request.query_params.get('register', None)
         if register_id is not None:
             queryset = queryset.filter(register_id=register_id)
         return queryset
 
+    def perform_create(self, serializer):
+        register_id = self.request.data.get('register')
+        register, err = get_tenant_register(self.request.user, register_id)
+        if err:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(err.data.get('error', 'Yetkisiz erişim.'))
+        serializer.save(register=register)
+
 class StockAuditViewSet(viewsets.ModelViewSet):
-    queryset = StockAudit.objects.all().order_by('-date')
     serializer_class = StockAuditSerializer
+
+    def get_queryset(self):
+        queryset = StockAudit.objects.all().order_by('-date').distinct()
+        return filter_by_brand(queryset, self.request, brand_field='items__ingredient__brand')
 
     def create(self, request, *args, **kwargs):
         items_data = request.data.get('items', [])
@@ -374,9 +544,8 @@ class StockAuditViewSet(viewsets.ModelViewSet):
                     ing_id = item.get('ingredient')
                     actual_stock = float(item.get('actual_stock', 0))
 
-                    try:
-                        ingredient = Ingredient.objects.get(id=ing_id)
-                    except Ingredient.DoesNotExist:
+                    ingredient, ing_err = get_tenant_ingredient(request.user, ing_id)
+                    if ing_err or not ingredient:
                         continue
 
                     system_stock = float(ingredient.stock_quantity)
@@ -410,27 +579,66 @@ class StockAuditViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class CourierViewSet(viewsets.ModelViewSet):
-    queryset = Courier.objects.all().order_by('name')
     serializer_class = CourierSerializer
 
+    def get_queryset(self):
+        return filter_by_brand(Courier.objects.all().order_by('name'), self.request)
+
+    def perform_create(self, serializer):
+        assign_brand(serializer, self.request)
+
 class CourierLogViewSet(viewsets.ModelViewSet):
-    queryset = CourierLog.objects.all().order_by('-timestamp')
     serializer_class = CourierLogSerializer
 
+    def get_queryset(self):
+        return filter_by_brand(CourierLog.objects.all().order_by('-timestamp'), self.request, brand_field='courier__brand')
+
 class RestaurantProfileViewSet(viewsets.ModelViewSet):
-    queryset = RestaurantProfile.objects.all()
     serializer_class = RestaurantProfileSerializer
 
+    def get_queryset(self):
+        return filter_by_brand(RestaurantProfile.objects.all(), self.request)
+
+    def perform_create(self, serializer):
+        assign_brand(serializer, self.request)
+
 class CustomerViewSet(viewsets.ModelViewSet):
-    queryset = Customer.objects.all().order_by('-id')
     serializer_class = CustomerSerializer
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.role != 'super_admin' and profile.brand:
+            from .plan_limits import check_feature
+            from rest_framework.exceptions import PermissionDenied
+            ok, err = check_feature(profile.brand, 'crm')
+            if not ok:
+                raise PermissionDenied(err)
+
+    def get_queryset(self):
+        return filter_by_brand(Customer.objects.all().order_by('-id'), self.request)
+
+    def perform_create(self, serializer):
+        assign_brand(serializer, self.request)
+
 class WhatsAppConfigViewSet(viewsets.ModelViewSet):
-    queryset = WhatsAppConfig.objects.all().order_by('-id')
     serializer_class = WhatsAppConfigSerializer
+
+    def get_queryset(self):
+        return filter_by_brand(WhatsAppConfig.objects.all().order_by('-id'), self.request)
+
+    def perform_create(self, serializer):
+        assign_brand(serializer, self.request)
 
     @action(detail=False, methods=['post'])
     def send_campaign(self, request):
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.brand:
+            from .plan_limits import check_feature
+            ok, err = check_feature(profile.brand, 'whatsapp')
+            if not ok:
+                return Response({'error': err}, status=status.HTTP_403_FORBIDDEN)
+
         message = request.data.get('message', '')
         recipients = request.data.get('recipients', [])
         
@@ -453,12 +661,99 @@ class WhatsAppConfigViewSet(viewsets.ModelViewSet):
             'logs': logs
         })
 
+class BranchViewSet(viewsets.ModelViewSet):
+    queryset = Branch.objects.all().order_by('name')
+    serializer_class = BranchSerializer
+
+    def _get_profile(self):
+        return getattr(self.request.user, 'profile', None)
+
+    def _can_manage_franchise(self):
+        profile = self._get_profile()
+        if not profile:
+            return False
+        return profile.role in ('store_owner', 'super_admin')
+
+    def get_queryset(self):
+        queryset = Branch.objects.all().order_by('name')
+        user = self.request.user
+        if not user.is_authenticated:
+            return Branch.objects.none()
+        profile = self._get_profile()
+        if profile and profile.role != 'super_admin':
+            if profile.brand:
+                queryset = queryset.filter(brand=profile.brand)
+            else:
+                queryset = Branch.objects.none()
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        if not self._can_manage_franchise():
+            return Response(
+                {'error': 'Franchise oluşturma yalnızca kurum yöneticisine aittir.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        profile = self._get_profile()
+        brand = profile.brand if profile and profile.role == 'store_owner' else None
+        if not brand and profile and profile.role == 'super_admin':
+            from .models import Brand
+            brand_id = request.data.get('brand')
+            brand = Brand.objects.filter(id=brand_id).first() if brand_id else Brand.objects.first()
+        if brand:
+            from .plan_limits import check_limit, check_feature
+            ok, err = check_feature(brand, 'multi_branch')
+            if not ok and Branch.objects.filter(brand=brand).count() >= 1:
+                return Response({'error': err}, status=status.HTTP_400_BAD_REQUEST)
+            ok, err = check_limit(brand, 'branches')
+            if not ok:
+                return Response({'error': err}, status=status.HTTP_400_BAD_REQUEST)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not self._can_manage_franchise():
+            return Response(
+                {'error': 'Franchise yönetimi yalnızca kurum yöneticisine aittir.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not self._can_manage_franchise():
+            return Response(
+                {'error': 'Franchise silme yalnızca kurum yöneticisine aittir.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        from .franchise_views import _generate_panel_slug
+        user = self.request.user
+        profile = getattr(user, 'profile', None)
+        if profile and profile.brand and profile.role == 'store_owner':
+            branch = serializer.save(brand=profile.brand)
+        else:
+            brand_id = self.request.data.get('brand')
+            if brand_id:
+                branch = serializer.save(brand_id=brand_id)
+            else:
+                from .models import Brand
+                brand = Brand.objects.first()
+                if brand:
+                    branch = serializer.save(brand=brand)
+                else:
+                    raise Exception('Bir marka bulunamadı.')
+        if not branch.panel_slug:
+            branch.panel_slug = _generate_panel_slug(branch)
+            branch.save(update_fields=['panel_slug'])
+        _seed_branch_tables(branch)
+
+
 class MenuItemModifierViewSet(viewsets.ModelViewSet):
-    queryset = MenuItemModifier.objects.all().order_by('id')
     serializer_class = MenuItemModifierSerializer
 
     def get_queryset(self):
         queryset = MenuItemModifier.objects.all().order_by('id')
+        queryset = filter_by_brand(queryset, self.request, brand_field='menu_item__brand')
         menu_item_id = self.request.query_params.get('menu_item', None)
         if menu_item_id is not None:
             queryset = queryset.filter(menu_item_id=menu_item_id)
@@ -471,6 +766,7 @@ class LowStockView(views.APIView):
             minimum_stock__gt=0,
             stock_quantity__lte=F('minimum_stock')
         ).order_by('name')
+        low = filter_by_brand(low, request)
         from .serializers import IngredientSerializer
         data = IngredientSerializer(low, many=True).data
         return Response({
@@ -517,11 +813,24 @@ class ReportStatsView(views.APIView):
         prev_start_dt = timezone.make_aware(timezone.datetime.combine(prev_start, timezone.datetime.min.time()))
         prev_end_dt = timezone.make_aware(timezone.datetime.combine(prev_end, timezone.datetime.max.time()))
 
-        # ── Current period data ──
+        brand = get_user_brand(request.user)
+        profile = getattr(request.user, 'profile', None)
+
         orders = Order.objects.filter(created_at__range=(start_dt, end_dt))
-        completed_orders = orders.filter(status='completed')
         payments = Payment.objects.filter(created_at__range=(start_dt, end_dt))
         expenses = Expense.objects.filter(date__range=(start_date, end_date))
+
+        if profile and profile.role != 'super_admin':
+            if brand:
+                orders = orders.filter(brand=brand)
+                payments = payments.filter(order__brand=brand)
+                expenses = expenses.filter(staff_member__user__profile__brand=brand)
+            else:
+                orders = Order.objects.none()
+                payments = Payment.objects.none()
+                expenses = Expense.objects.none()
+
+        completed_orders = orders.filter(status='completed')
 
         total_revenue = payments.aggregate(t=Sum('amount'))['t'] or 0
         total_expense = expenses.aggregate(t=Sum('amount'))['t'] or 0
@@ -535,10 +844,17 @@ class ReportStatsView(views.APIView):
         for pm in payment_methods:
             methods_data[pm['payment_method']] = float(pm['total'])
 
-        # ── Previous period data (for comparison) ──
         prev_payments = Payment.objects.filter(created_at__range=(prev_start_dt, prev_end_dt))
         prev_expenses = Expense.objects.filter(date__range=(prev_start, prev_end))
         prev_completed = Order.objects.filter(created_at__range=(prev_start_dt, prev_end_dt), status='completed')
+        if profile and profile.role != 'super_admin' and brand:
+            prev_payments = prev_payments.filter(order__brand=brand)
+            prev_expenses = prev_expenses.filter(staff_member__user__profile__brand=brand)
+            prev_completed = prev_completed.filter(brand=brand)
+        elif profile and profile.role != 'super_admin':
+            prev_payments = Payment.objects.none()
+            prev_expenses = Expense.objects.none()
+            prev_completed = Order.objects.none()
 
         prev_revenue = float(prev_payments.aggregate(t=Sum('amount'))['t'] or 0)
         prev_expense_total = float(prev_expenses.aggregate(t=Sum('amount'))['t'] or 0)
@@ -555,8 +871,16 @@ class ReportStatsView(views.APIView):
             day = start_date + timedelta(days=i)
             day_start = timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time()))
             day_end = timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.max.time()))
-            day_revenue = float(Payment.objects.filter(created_at__range=(day_start, day_end)).aggregate(t=Sum('amount'))['t'] or 0)
-            day_orders = Order.objects.filter(created_at__range=(day_start, day_end), status='completed').count()
+            day_pay_qs = Payment.objects.filter(created_at__range=(day_start, day_end))
+            day_ord_qs = Order.objects.filter(created_at__range=(day_start, day_end), status='completed')
+            if profile and profile.role != 'super_admin' and brand:
+                day_pay_qs = day_pay_qs.filter(order__brand=brand)
+                day_ord_qs = day_ord_qs.filter(brand=brand)
+            elif profile and profile.role != 'super_admin':
+                day_pay_qs = Payment.objects.none()
+                day_ord_qs = Order.objects.none()
+            day_revenue = float(day_pay_qs.aggregate(t=Sum('amount'))['t'] or 0)
+            day_orders = day_ord_qs.count()
             daily_sales.append({
                 'date': day.strftime('%d.%m'),
                 'full_date': day.strftime('%Y-%m-%d'),

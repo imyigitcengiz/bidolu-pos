@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useResponsive } from '../hooks/useResponsive';
 import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 export default function MenuManagement() {
   const { isMobile } = useResponsive();
@@ -38,7 +38,7 @@ export default function MenuManagement() {
   const fetchItemModifiers = async (itemId) => {
     if (!itemId) return;
     try {
-      const res = await fetch(`${API_BASE}/menu-item-modifiers/?menu_item=${itemId}`);
+      const res = await apiFetch(`/menu-item-modifiers/?menu_item=${itemId}`);
       const data = await res.json();
       setItemModifiers(data);
     } catch (err) { console.error(err); }
@@ -48,7 +48,7 @@ export default function MenuManagement() {
     e.preventDefault();
     if (!selectedItemForMod || !modName.trim()) return;
     try {
-      const res = await fetch(`${API_BASE}/menu-item-modifiers/`, {
+      const res = await apiFetch(`/menu-item-modifiers/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -70,14 +70,14 @@ export default function MenuManagement() {
 
   const handleDeleteModifier = async (id) => {
     try {
-      await fetch(`${API_BASE}/menu-item-modifiers/${id}/`, { method: 'DELETE' });
+      await apiFetch(`/menu-item-modifiers/${id}/`, { method: 'DELETE' });
       fetchItemModifiers(selectedItemForMod);
     } catch (err) { console.error(err); }
   };
 
   const handleToggleModifierAvail = async (mod) => {
     try {
-      await fetch(`${API_BASE}/menu-item-modifiers/${mod.id}/`, {
+      await apiFetch(`/menu-item-modifiers/${mod.id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_available: !mod.is_available })
@@ -88,7 +88,7 @@ export default function MenuManagement() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_BASE}/categories/`);
+      const res = await apiFetch(`/categories/`);
       const data = await res.json();
       setCategories(data);
       if (data.length > 0 && !itemCat) {
@@ -101,7 +101,7 @@ export default function MenuManagement() {
 
   const fetchMenuItems = async () => {
     try {
-      const res = await fetch(`${API_BASE}/menu-items/`);
+      const res = await apiFetch(`/menu-items/`);
       const data = await res.json();
       setMenuItems(data);
     } catch (err) {
@@ -114,7 +114,7 @@ export default function MenuManagement() {
     if (!catName.trim()) return;
 
     try {
-      const res = await fetch(`${API_BASE}/categories/`, {
+      const res = await apiFetch(`/categories/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: catName, icon: catIcon })
@@ -132,7 +132,7 @@ export default function MenuManagement() {
   const handleDeleteCategory = async (id) => {
     if (!confirm('Bu kategoriyi silmek istediğinize emin misiniz? Kategorideki ürünler de etkilenecektir.')) return;
     try {
-      const res = await fetch(`${API_BASE}/categories/${id}/`, { method: 'DELETE' });
+      const res = await apiFetch(`/categories/${id}/`, { method: 'DELETE' });
       if (res.ok) {
         fetchCategories();
         fetchMenuItems();
@@ -163,13 +163,13 @@ export default function MenuManagement() {
       let res;
       if (editingItemId) {
         // Edit mode
-        res = await fetch(`${API_BASE}/menu-items/${editingItemId}/`, {
+        res = await apiFetch(`/menu-items/${editingItemId}/`, {
           method: 'PUT',
           body: formData
         });
       } else {
         // Create mode
-        res = await fetch(`${API_BASE}/menu-items/`, {
+        res = await apiFetch(`/menu-items/`, {
           method: 'POST',
           body: formData
         });
@@ -206,7 +206,7 @@ export default function MenuManagement() {
   const handleDeleteMenuItem = async (id) => {
     if (!confirm('Bu ürünü silmek istediğinize emin misiniz?')) return;
     try {
-      const res = await fetch(`${API_BASE}/menu-items/${id}/`, { method: 'DELETE' });
+      const res = await apiFetch(`/menu-items/${id}/`, { method: 'DELETE' });
       if (res.ok) {
         fetchMenuItems();
       }

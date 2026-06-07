@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Check, RefreshCw } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 export default function Kitchen() {
   const [activeOrders, setActiveOrders] = useState([]);
@@ -17,7 +17,7 @@ export default function Kitchen() {
   const fetchActiveOrders = async () => {
     try {
       // Fetch all active orders (excluding completed and cancelled)
-      const res = await fetch(`${API_BASE}/orders/?active=true`);
+      const res = await apiFetch(`/orders/?active=true`);
       const data = await res.json();
       
       // Sort orders: oldest first so we prioritize first-come-first-served
@@ -32,7 +32,7 @@ export default function Kitchen() {
 
   const handleItemStatusChange = async (itemId, newStatus) => {
     try {
-      const res = await fetch(`${API_BASE}/order-items/${itemId}/change_status/`, {
+      const res = await apiFetch(`/order-items/${itemId}/change_status/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

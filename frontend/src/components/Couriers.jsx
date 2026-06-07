@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Truck, Plus, Check, RefreshCw, DollarSign, Activity, MapPin, Map, Navigation, Compass } from 'lucide-react';
 import { useResponsive } from '../hooks/useResponsive';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 export default function Couriers({ restaurantProfile }) {
   const { isMobile } = useResponsive();
@@ -123,8 +123,8 @@ export default function Couriers({ restaurantProfile }) {
     try {
       setLoading(true);
       const [courRes, logsRes] = await Promise.all([
-        fetch(`${API_BASE}/couriers/`),
-        fetch(`${API_BASE}/courier-logs/`)
+        apiFetch('/couriers/'),
+        apiFetch('/courier-logs/'),
       ]);
       const cours = await courRes.json();
       const lgs = await logsRes.json();
@@ -142,7 +142,7 @@ export default function Couriers({ restaurantProfile }) {
     if (!name) return;
 
     try {
-      const res = await fetch(`${API_BASE}/couriers/`, {
+      const res = await apiFetch(`/couriers/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,7 +169,7 @@ export default function Couriers({ restaurantProfile }) {
   const handleUpdateStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === 'available' ? 'on_delivery' : 'available';
     try {
-      const res = await fetch(`${API_BASE}/couriers/${id}/`, {
+      const res = await apiFetch(`/couriers/${id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -196,7 +196,7 @@ export default function Couriers({ restaurantProfile }) {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/couriers/${selectedCourier.id}/`, {
+      const res = await apiFetch(`/couriers/${selectedCourier.id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cash_advance_amount: newAmount })

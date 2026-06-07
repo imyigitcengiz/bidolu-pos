@@ -12,10 +12,50 @@
   border-right: 1px solid var(--panel-border);
   display: flex;
   flex-direction: column;
-  padding: 24px;
+  padding: 16px;
   position: fixed;
   height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   z-index: 100;
+  box-sizing: border-box;
+}
+
+.sidebar .logo-container {
+  flex-shrink: 0;
+  margin-bottom: 16px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-right: -4px;
+  padding-right: 4px;
+}
+
+.sidebar-nav .nav-links {
+  gap: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+}
+
+.sidebar-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .logo-container {

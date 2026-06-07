@@ -4,17 +4,22 @@ from .models import (
     OrderChannel, CashRegister, Ingredient, Recipe, RecipeIngredient,
     StaffMember, Expense, Courier, CourierLog, RestaurantProfile,
     CashTransaction, StockAudit, StockAuditItem, Customer, WhatsAppConfig,
+    Branch,
 )
 
 class TableSerializer(serializers.ModelSerializer):
+    branch_name = serializers.ReadOnlyField(source='branch.name')
+
     class Meta:
         model = Table
         fields = '__all__'
+        read_only_fields = ['brand', 'branch']
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
+        read_only_fields = ['brand']
 
 class MenuItemModifierSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,6 +34,7 @@ class MenuItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuItem
         fields = '__all__'
+        read_only_fields = ['brand']
 
 class OrderItemSerializer(serializers.ModelSerializer):
     menu_item_name = serializers.ReadOnlyField(source='menu_item.name')
@@ -37,36 +43,50 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = '__all__'
+        read_only_fields = ['order']
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     table_name = serializers.ReadOnlyField(source='table.name')
+    branch_name = serializers.ReadOnlyField(source='branch.name')
     discounted_total = serializers.ReadOnlyField()
 
     class Meta:
         model = Order
         fields = '__all__'
+        read_only_fields = ['brand', 'branch']
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = '__all__'
+        read_only_fields = ['order']
 
-# New serializers
 class OrderChannelSerializer(serializers.ModelSerializer):
+    api_key = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+
     class Meta:
         model = OrderChannel
         fields = '__all__'
+        read_only_fields = ['brand']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.api_key:
+            data['api_key_masked'] = instance.api_key[:4] + '****' if len(instance.api_key) > 4 else '****'
+        return data
 
 class CashRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = CashRegister
         fields = '__all__'
+        read_only_fields = ['brand', 'branch']
 
 class IngredientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ingredient
         fields = '__all__'
+        read_only_fields = ['brand']
 
 class RecipeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -92,6 +112,7 @@ class CourierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Courier
         fields = '__all__'
+        read_only_fields = ['brand']
 
 class CourierLogSerializer(serializers.ModelSerializer):
     class Meta:
@@ -102,6 +123,7 @@ class RestaurantProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = RestaurantProfile
         fields = '__all__'
+        read_only_fields = ['brand']
 
 class CashTransactionSerializer(serializers.ModelSerializer):
     register_name = serializers.ReadOnlyField(source='register.name')
@@ -109,6 +131,7 @@ class CashTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CashTransaction
         fields = '__all__'
+        read_only_fields = ['register']
 
 class StockAuditItemSerializer(serializers.ModelSerializer):
     ingredient_name = serializers.ReadOnlyField(source='ingredient.name')
@@ -129,9 +152,40 @@ class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = '__all__'
+        read_only_fields = ['brand']
 
 class WhatsAppConfigSerializer(serializers.ModelSerializer):
+    api_key = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+
     class Meta:
         model = WhatsAppConfig
         fields = '__all__'
+        read_only_fields = ['brand']
 
+
+class BranchSerializer(serializers.ModelSerializer):
+    brand_name = serializers.ReadOnlyField(source='brand.name')
+    has_panel_password = serializers.SerializerMethodField()
+    panel_url = serializers.SerializerMethodField()
+    brand_plan = serializers.ReadOnlyField(source='brand.plan')
+    table_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Branch
+        fields = [
+            'id', 'brand', 'brand_name', 'brand_plan', 'name', 'city', 'address', 'phone',
+            'is_active', 'panel_slug', 'panel_enabled', 'has_panel_password', 'panel_url',
+            'panel_password_updated_at', 'created_at', 'table_count',
+        ]
+        read_only_fields = ['panel_slug', 'panel_password_updated_at', 'created_at', 'brand']
+
+    def get_has_panel_password(self, obj):
+        return bool(obj.panel_password)
+
+    def get_panel_url(self, obj):
+        if obj.panel_slug:
+            return f'/franchise?code={obj.panel_slug}'
+        return None
+
+    def get_table_count(self, obj):
+        return obj.tables.count()

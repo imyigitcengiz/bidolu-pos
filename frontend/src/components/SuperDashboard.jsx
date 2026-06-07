@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Building2, Users, Crown, BarChart3, Search, Edit3, Trash2, LogIn,
   X, Save, Check, AlertTriangle, Clock, UserPlus, Store, ChevronDown,
-  ToggleLeft, ToggleRight, Filter, Activity, Star, Zap, Gem,
+  ToggleLeft, ToggleRight, Filter, Activity, Star, Zap, Gem, Server, Shield,
 } from 'lucide-react';
 import { useResponsive } from '../hooks/useResponsive';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 const PLAN_COLORS = {
   starter:    { color: '#94a3b8', bg: '#f1f5f9', label: 'Starter',    icon: Star },
@@ -15,11 +15,8 @@ const PLAN_COLORS = {
 };
 
 const ROLE_CONFIG = {
+  store_owner: { label: 'Mağaza Sahibi', color: '#7c3aed', bg: '#f5f3ff' },
   super_admin: { label: 'Süper Yönetici', color: '#dc2626', bg: '#fef2f2' },
-  admin:       { label: 'Yönetici',       color: '#7c3aed', bg: '#f5f3ff' },
-  manager:     { label: 'Müdür',          color: '#2563eb', bg: '#eff6ff' },
-  staff:       { label: 'Personel',       color: '#059669', bg: '#ecfdf5' },
-  waiter:      { label: 'Garson',         color: '#d97706', bg: '#fffbeb' },
 };
 
 // ─── Shared Styles ───────────────────────────────────────────────────
@@ -120,7 +117,8 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
   const [userBrandFilter, setUserBrandFilter] = useState('');
 
   // Modal
-  const [editModal, setEditModal] = useState(null); // { brand, plan, name, is_active, plan_expiry }
+  const [editModal, setEditModal] = useState(null);
+  const [storeOwners, setStoreOwners] = useState([]);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -132,7 +130,7 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
   // ── Fetch Stats ──────────────────────────────────────────────────
   const fetchStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/auth/super-stats/`, { headers });
+      const res = await apiFetch(`${API_BASE}/auth/super-stats/`, { headers });
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -146,7 +144,7 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
   const fetchBrands = async () => {
     try {
       setTabLoading(true);
-      const res = await fetch(`${API_BASE}/auth/brands/`, { headers });
+      const res = await apiFetch(`${API_BASE}/auth/brands/`, { headers });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setBrands(data);
@@ -158,14 +156,17 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
     }
   };
 
-  // ── Fetch Users ──────────────────────────────────────────────────
+  // ── Fetch Store Owners (super admin MVP view) ────────────────────
   const fetchUsers = async () => {
     try {
       setTabLoading(true);
-      const res = await fetch(`${API_BASE}/auth/users/`, { headers });
+      const res = await apiFetch(`${API_BASE}/auth/users/`, { headers });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) setUsers(data);
+        if (Array.isArray(data)) {
+          setUsers(data);
+          setStoreOwners(data);
+        }
       }
     } catch (err) {
       console.error('Users fetch error:', err);
@@ -195,7 +196,7 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
   // ── Brand actions ────────────────────────────────────────────────
   const handleToggleBrandActive = async (brand) => {
     try {
-      await fetch(`${API_BASE}/auth/brands/${brand.id}/`, {
+      await apiFetch(`${API_BASE}/auth/brands/${brand.id}/`, {
         method: 'PATCH', headers,
         body: JSON.stringify({ is_active: !brand.is_active }),
       });
@@ -209,7 +210,7 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
   const handleDeleteBrand = async (brand) => {
     if (!confirm(`"${brand.name}" markasını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) return;
     try {
-      const res = await fetch(`${API_BASE}/auth/brands/${brand.id}/`, { method: 'DELETE', headers });
+      const res = await apiFetch(`${API_BASE}/auth/brands/${brand.id}/`, { method: 'DELETE', headers });
       if (res.ok) {
         showSuccess('Marka başarıyla silindi.');
         fetchBrands();
@@ -230,12 +231,29 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
       if (editModal.is_active !== editModal.brand.is_active) body.is_active = editModal.is_active;
       if (editModal.plan_expiry !== (editModal.brand.plan_expiry || '')) body.plan_expiry = editModal.plan_expiry || null;
 
+      if (editModal.ownerMode === 'assign' && editModal.ownerId) {
+        body.owner_id = Number(editModal.ownerId);
+      }
+      if (editModal.ownerMode === 'create') {
+        if (!editModal.newOwnerUsername?.trim() || !editModal.newOwnerPassword) {
+          setError('Yeni sahip için kullanıcı adı ve şifre zorunludur.');
+          return;
+        }
+        body.new_owner = {
+          username: editModal.newOwnerUsername.trim(),
+          password: editModal.newOwnerPassword,
+          email: editModal.newOwnerEmail?.trim() || '',
+          first_name: editModal.newOwnerFirstName?.trim() || '',
+          last_name: editModal.newOwnerLastName?.trim() || '',
+        };
+      }
+
       if (Object.keys(body).length === 0) {
         setEditModal(null);
         return;
       }
 
-      const res = await fetch(`${API_BASE}/auth/brands/${editModal.brand.id}/`, {
+      const res = await apiFetch(`${API_BASE}/auth/brands/${editModal.brand.id}/`, {
         method: 'PATCH', headers, body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -252,11 +270,15 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
     }
   };
 
-  // ── Impersonate ──────────────────────────────────────────────────
-  const handleImpersonate = async (userId, userName) => {
-    if (!confirm(`"${userName}" kullanıcısı olarak giriş yapmak istediğinizden emin misiniz?`)) return;
+  // ── Enter store as brand owner ───────────────────────────────────
+  const handleEnterStore = async (brand) => {
+    if (!brand.owner) {
+      alert('Bu markanın sahibi tanımlı değil. Önce mağaza sahibi atayın.');
+      return;
+    }
+    if (!confirm(`"${brand.name}" mağazasına sahip olarak giriş yapmak istiyor musunuz?`)) return;
     try {
-      const res = await fetch(`${API_BASE}/auth/users/${userId}/impersonate/`, {
+      const res = await apiFetch(`${API_BASE}/auth/brands/${brand.id}/enter/`, {
         method: 'POST', headers,
       });
       if (res.ok) {
@@ -264,11 +286,47 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
         onImpersonate(data.token, data.user);
       } else {
         const data = await res.json();
-        alert(data.error || data.detail || 'Impersonate başarısız.');
+        alert(data.error || data.detail || 'Mağazaya giriş başarısız.');
       }
-    } catch (err) {
+    } catch {
       alert('Sunucu hatası.');
     }
+  };
+
+  const handleImpersonateOwner = async (userId, userName) => {
+    if (!confirm(`"${userName}" mağaza sahibi olarak giriş yapmak istiyor musunuz?`)) return;
+    try {
+      const res = await apiFetch(`${API_BASE}/auth/users/${userId}/impersonate/`, {
+        method: 'POST', headers,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onImpersonate(data.token, data.user);
+      } else {
+        const data = await res.json();
+        alert(data.error || data.detail || 'Giriş başarısız.');
+      }
+    } catch {
+      alert('Sunucu hatası.');
+    }
+  };
+
+  const openEditModal = async (brand) => {
+    if (storeOwners.length === 0) await fetchUsers();
+    setEditModal({
+      brand,
+      name: brand.name,
+      plan: brand.plan,
+      is_active: brand.is_active,
+      plan_expiry: brand.plan_expiry || '',
+      ownerMode: brand.owner ? 'keep' : 'create',
+      ownerId: brand.owner?.id ? String(brand.owner.id) : '',
+      newOwnerUsername: '',
+      newOwnerPassword: '',
+      newOwnerEmail: '',
+      newOwnerFirstName: '',
+      newOwnerLastName: '',
+    });
   };
 
   // ── Helpers ──────────────────────────────────────────────────────
@@ -329,10 +387,13 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
   const totalPlans = (planDist.starter || 0) + (planDist.growth || 0) + (planDist.enterprise || 0);
 
   const TABS = [
-    { key: 'brands',   label: 'Markalar',        icon: Building2 },
-    { key: 'users',    label: 'Kullanıcılar',    icon: Users },
-    { key: 'activity', label: 'Son Aktiviteler', icon: Activity },
+    { key: 'brands',   label: 'Markalar',         icon: Building2 },
+    { key: 'users',    label: 'Mağaza Sahipleri', icon: Users },
+    { key: 'platform', label: 'Platform (KVKK)',  icon: Server },
+    { key: 'activity', label: 'Son Aktiviteler',  icon: Activity },
   ];
+
+  const platformMetrics = stats?.platform_metrics;
 
   return (
     <div>
@@ -404,7 +465,7 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
         <div style={s.card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
             <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Toplam Kullanıcı
+              Mağaza Sahibi
             </span>
             <div style={{
               width: '36px', height: '36px', borderRadius: '10px',
@@ -418,7 +479,7 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
             {stats?.total_users ?? 0}
           </div>
           <span style={{ fontSize: '11px', color: 'var(--text-muted, #64748b)', marginTop: '4px', display: 'block' }}>
-            Tüm kullanıcılar
+            Kayıtlı mağaza sahipleri
           </span>
         </div>
 
@@ -518,14 +579,8 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
             isMobile={isMobile}
             onToggle={handleToggleBrandActive}
             onDelete={handleDeleteBrand}
-            onEdit={(brand) => setEditModal({
-              brand,
-              name: brand.name,
-              plan: brand.plan,
-              is_active: brand.is_active,
-              plan_expiry: brand.plan_expiry || '',
-            })}
-            onImpersonate={handleImpersonate}
+            onEdit={openEditModal}
+            onEnterStore={handleEnterStore}
           />}
 
           {activeTab === 'users' && <UsersTab
@@ -536,8 +591,45 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
             setBrandFilter={setUserBrandFilter}
             brandsForFilter={uniqueBrandsForFilter}
             isMobile={isMobile}
-            onImpersonate={handleImpersonate}
+            onImpersonate={handleImpersonateOwner}
           />}
+
+          {activeTab === 'platform' && (
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <Shield size={20} style={{ color: '#6366f1' }} />
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700' }}>KVKK Uyumlu Platform Metrikleri</h3>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.6 }}>
+                {platformMetrics?.kvkk_notice || 'Toplam hesap sayıları yalnızca sunucu kapasite planlaması içindir.'}
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                {[
+                  ['Toplam Hesap', platformMetrics?.total_user_accounts ?? stats?.total_users ?? 0],
+                  ['Aktif Hesap', platformMetrics?.active_user_accounts ?? 0],
+                  ['Toplam Şube', platformMetrics?.total_branches ?? 0],
+                  ['Aktif Franchise Paneli', platformMetrics?.active_franchise_panels ?? 0],
+                ].map(([label, val]) => (
+                  <div key={label} style={{ background: '#f8fafc', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '22px', fontWeight: '800', color: '#1e293b' }}>{val}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              {platformMetrics?.accounts_by_role && (
+                <div>
+                  <h4 style={{ fontSize: '13px', fontWeight: '700', marginBottom: '10px' }}>Rol Bazlı Hesap Dağılımı (anonim)</h4>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {Object.entries(platformMetrics.accounts_by_role).map(([role, count]) => (
+                      <span key={role} style={{ background: '#eef2ff', color: '#4f46e5', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '600' }}>
+                        {role}: {count}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {activeTab === 'activity' && <ActivityTab stats={stats} isMobile={isMobile} />}
         </>
@@ -640,6 +732,70 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
                 </div>
               </div>
 
+              {/* Owner Management */}
+              <div style={{ marginBottom: '16px', padding: '14px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '10px' }}>
+                  Mağaza Sahibi
+                </label>
+                {editModal.brand.owner && (
+                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px' }}>
+                    Mevcut: <strong>{editModal.brand.owner.first_name} {editModal.brand.owner.last_name}</strong> (@{editModal.brand.owner.username})
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                  {[
+                    { key: 'keep', label: 'Değiştirme' },
+                    { key: 'assign', label: 'Mevcut Sahip Ata' },
+                    { key: 'create', label: 'Yeni Sahip Oluştur' },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setEditModal({ ...editModal, ownerMode: opt.key })}
+                      style={{
+                        padding: '6px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer',
+                        border: `1.5px solid ${editModal.ownerMode === opt.key ? '#6366f1' : '#e2e8f0'}`,
+                        background: editModal.ownerMode === opt.key ? '#eef2ff' : '#fff',
+                        color: editModal.ownerMode === opt.key ? '#4f46e5' : '#64748b',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {editModal.ownerMode === 'assign' && (
+                  <select
+                    value={editModal.ownerId}
+                    onChange={(e) => setEditModal({ ...editModal, ownerId: e.target.value })}
+                    className="form-control"
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  >
+                    <option value="">Mağaza sahibi seçin...</option>
+                    {storeOwners.map(o => (
+                      <option key={o.id} value={String(o.id)}>
+                        {o.first_name || o.last_name ? `${o.first_name} ${o.last_name}`.trim() : o.username} (@{o.username})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {editModal.ownerMode === 'create' && (
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    <input className="form-control" placeholder="Kullanıcı adı *" value={editModal.newOwnerUsername}
+                      onChange={(e) => setEditModal({ ...editModal, newOwnerUsername: e.target.value })} />
+                    <input className="form-control" type="password" placeholder="Şifre *" value={editModal.newOwnerPassword}
+                      onChange={(e) => setEditModal({ ...editModal, newOwnerPassword: e.target.value })} />
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                      <input className="form-control" placeholder="Ad" value={editModal.newOwnerFirstName}
+                        onChange={(e) => setEditModal({ ...editModal, newOwnerFirstName: e.target.value })} />
+                      <input className="form-control" placeholder="Soyad" value={editModal.newOwnerLastName}
+                        onChange={(e) => setEditModal({ ...editModal, newOwnerLastName: e.target.value })} />
+                    </div>
+                    <input className="form-control" type="email" placeholder="E-posta" value={editModal.newOwnerEmail}
+                      onChange={(e) => setEditModal({ ...editModal, newOwnerEmail: e.target.value })} />
+                  </div>
+                )}
+              </div>
+
               {/* Plan Expiry */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
@@ -712,7 +868,7 @@ export default function SuperDashboard({ authToken, onImpersonate }) {
 // ═══════════════════════════════════════════════════════════════════════
 // ── BRANDS TAB ─────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════
-function BrandsTab({ brands, search, setSearch, isMobile, onToggle, onDelete, onEdit, onImpersonate }) {
+function BrandsTab({ brands, search, setSearch, isMobile, onToggle, onDelete, onEdit, onEnterStore }) {
   return (
     <div>
       {/* Search bar */}
@@ -839,18 +995,21 @@ function BrandsTab({ brands, search, setSearch, isMobile, onToggle, onDelete, on
                     {/* Actions */}
                     <td style={{ ...s.td, textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '5px', justifyContent: 'flex-end' }}>
-                        <button onClick={() => onEdit(brand)} title="Plan Düzenle" style={s.iconBtn('#6366f1', '#eef2ff')}>
+                        <button onClick={() => onEdit(brand)} title="Düzenle / Sahip Yönet" style={s.iconBtn('#6366f1', '#eef2ff')}>
                           <Edit3 size={14} />
                         </button>
-                        {brand.owner && (
-                          <button
-                            onClick={() => onImpersonate(brand.owner.id, brand.owner.username)}
-                            title="Sahip Olarak Giriş Yap"
-                            style={s.iconBtn('#f59e0b', '#fffbeb')}
-                          >
-                            <LogIn size={14} />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => onEnterStore(brand)}
+                          title={brand.owner ? 'Mağazaya Gir' : 'Önce sahip atayın'}
+                          disabled={!brand.owner}
+                          style={{
+                            ...s.iconBtn(brand.owner ? '#059669' : '#94a3b8', brand.owner ? '#ecfdf5' : '#f1f5f9'),
+                            opacity: brand.owner ? 1 : 0.5,
+                            cursor: brand.owner ? 'pointer' : 'not-allowed',
+                          }}
+                        >
+                          <LogIn size={14} />
+                        </button>
                         <button onClick={() => onDelete(brand)} title="Sil" style={s.iconBtn('#ef4444', '#fef2f2')}>
                           <Trash2 size={14} />
                         </button>
@@ -888,7 +1047,7 @@ function UsersTab({ users, search, setSearch, brandFilter, setBrandFilter, brand
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Kullanıcı ara..."
+            placeholder="Mağaza sahibi ara..."
             style={{
               border: 'none', background: 'transparent', outline: 'none',
               fontSize: '13px', color: 'var(--text-main, #1e293b)', width: '100%',
@@ -947,7 +1106,7 @@ function UsersTab({ users, search, setSearch, brandFilter, setBrandFilter, brand
               {users.length === 0 ? (
                 <tr>
                   <td colSpan={isMobile ? 4 : 6} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted, #64748b)', fontSize: '13px' }}>
-                    Kullanıcı bulunamadı.
+                    Mağaza sahibi bulunamadı.
                   </td>
                 </tr>
               ) : users.map(user => {
@@ -1072,7 +1231,7 @@ function ActivityTab({ stats, isMobile }) {
       color: '#10b981',
       bg: '#ecfdf5',
       title: u.username || `${u.first_name} ${u.last_name}`.trim(),
-      subtitle: `Yeni kullanıcı kayıt oldu${u.brand ? ` • ${u.brand.name || u.brand}` : ''}`,
+      subtitle: `Yeni mağaza sahibi kayıt oldu${u.brand ? ` • ${u.brand.name || u.brand}` : ''}`,
       time: u.date_joined || u.created_at,
     })),
   ].sort((a, b) => new Date(b.time) - new Date(a.time));

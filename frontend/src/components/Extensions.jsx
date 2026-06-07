@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useResponsive } from '../hooks/useResponsive';
 import { Layers, QrCode, Globe, Users, MessageSquare, Plus, Trash2, Send, Save, ArrowLeft, RefreshCw, CheckCircle2, Play, MapPin, Lock } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 const planLevels = {
   'Starter': 1,
@@ -23,7 +23,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
   const handleToggleExtension = async (field, value) => {
     if (!restaurantProfile || !restaurantProfile.id) return;
     try {
-      const res = await fetch(`${API_BASE}/restaurant-profile/${restaurantProfile.id}/`, {
+      const res = await apiFetch(`${API_BASE}/restaurant-profile/${restaurantProfile.id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: value })
@@ -71,7 +71,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
   const fetchCustomers = async () => {
     try {
       setLoadingCrm(true);
-      const res = await fetch(`${API_BASE}/customers/`);
+      const res = await apiFetch(`${API_BASE}/customers/`);
       const data = await res.json();
       setCustomers(data);
     } catch (err) {
@@ -84,7 +84,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
   const fetchWhatsAppConfig = async () => {
     try {
       setLoadingWa(true);
-      const res = await fetch(`${API_BASE}/whatsapp-configs/`);
+      const res = await apiFetch(`${API_BASE}/whatsapp-configs/`);
       const data = await res.json();
       if (data && data.length > 0) {
         setWaConfig(data[0]);
@@ -101,7 +101,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
     if (!newCustName || !newCustPhone) return;
 
     try {
-      const res = await fetch(`${API_BASE}/customers/`, {
+      const res = await apiFetch(`${API_BASE}/customers/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -130,7 +130,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
   const handleDeleteCustomer = async (id) => {
     if (!window.confirm('Bu müşteriyi silmek istediğinizden emin misiniz?')) return;
     try {
-      const res = await fetch(`${API_BASE}/customers/${id}/`, { method: 'DELETE' });
+      const res = await apiFetch(`${API_BASE}/customers/${id}/`, { method: 'DELETE' });
       if (res.ok) {
         fetchCustomers();
       }
@@ -142,7 +142,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
   const handleToggleSubscription = async (id, currentStatus) => {
     const newStatus = currentStatus === 'cancelled' ? 'active' : 'cancelled';
     try {
-      const res = await fetch(`${API_BASE}/customers/${id}/`, {
+      const res = await apiFetch(`${API_BASE}/customers/${id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subscription_status: newStatus })
@@ -258,7 +258,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
 
       for (const cust of importedCustomers) {
         try {
-          const res = await fetch(`${API_BASE}/customers/`, {
+          const res = await apiFetch(`${API_BASE}/customers/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -291,13 +291,13 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
     try {
       let res;
       if (waConfig.id) {
-        res = await fetch(`${API_BASE}/whatsapp-configs/${waConfig.id}/`, {
+        res = await apiFetch(`${API_BASE}/whatsapp-configs/${waConfig.id}/`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(waConfig)
         });
       } else {
-        res = await fetch(`${API_BASE}/whatsapp-configs/`, {
+        res = await apiFetch(`${API_BASE}/whatsapp-configs/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(waConfig)
@@ -346,7 +346,7 @@ export default function Extensions({ setCurrentTab, activeSubView, setActiveSubV
     setWaSubTab('logs');
 
     try {
-      const res = await fetch(`${API_BASE}/whatsapp-configs/send_campaign/`, {
+      const res = await apiFetch(`${API_BASE}/whatsapp-configs/send_campaign/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

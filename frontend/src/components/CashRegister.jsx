@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CreditCard, ArrowUpRight, ArrowDownLeft, Plus, DollarSign } from 'lucide-react';
 import { useResponsive } from '../hooks/useResponsive';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 export default function CashRegister() {
   const { isMobile } = useResponsive();
@@ -36,7 +36,7 @@ export default function CashRegister() {
   const fetchRegisters = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/cash-registers/`);
+      const res = await apiFetch(`/cash-registers/`);
       const data = await res.json();
       setRegisters(data);
       if (data.length > 0) {
@@ -57,7 +57,7 @@ export default function CashRegister() {
   const fetchTransactions = async (registerId) => {
     if (!registerId) return;
     try {
-      const res = await fetch(`${API_BASE}/cash-transactions/?register=${registerId}`);
+      const res = await apiFetch(`/cash-transactions/?register=${registerId}`);
       const data = await res.json();
       setTransactions(data);
     } catch (err) {
@@ -72,7 +72,7 @@ export default function CashRegister() {
     const amount = parseFloat(transAmount);
 
     try {
-      const res = await fetch(`${API_BASE}/cash-transactions/`, {
+      const res = await apiFetch(`/cash-transactions/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -102,7 +102,7 @@ export default function CashRegister() {
     if (!newRegName || !newRegBal) return;
 
     try {
-      const res = await fetch(`${API_BASE}/cash-registers/`, {
+      const res = await apiFetch(`/cash-registers/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

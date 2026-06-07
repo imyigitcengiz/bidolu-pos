@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Check, Clock, Truck, RefreshCw, Plus } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 const PLATFORM_COLORS = {
   'Yemeksepeti': { bg: 'rgba(225, 27, 34, 0.15)', text: '#e11b22', border: 'rgba(225, 27, 34, 0.3)' },
@@ -76,9 +76,9 @@ export default function OrderPanel() {
     try {
       setLoading(true);
       const [ordRes, courRes, chanRes] = await Promise.all([
-        fetch(`${API_BASE}/orders/`),
-        fetch(`${API_BASE}/couriers/`),
-        fetch(`${API_BASE}/order-channels/`)
+        apiFetch('/orders/'),
+        apiFetch('/couriers/'),
+        apiFetch('/order-channels/'),
       ]);
       const ords = await ordRes.json();
       const cours = await courRes.json();
@@ -99,7 +99,7 @@ export default function OrderPanel() {
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
-      const res = await fetch(`${API_BASE}/orders/${orderId}/`, {
+      const res = await apiFetch(`/orders/${orderId}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -115,7 +115,7 @@ export default function OrderPanel() {
   const handleAssignCourier = async (orderId, courierId) => {
     try {
       // Create courier log
-      const res = await fetch(`${API_BASE}/courier-logs/`, {
+      const res = await apiFetch(`/courier-logs/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -143,12 +143,12 @@ export default function OrderPanel() {
       // Find the virtual table matching channel
       const tableName = `${simChannel} Paket`;
       // Fetch tables to get the ID
-      const tRes = await fetch(`${API_BASE}/tables/`);
+      const tRes = await apiFetch(`/tables/`);
       const tables = await tRes.json();
       let table = tables.find(t => t.name === tableName);
       if (!table) {
         // Create table if not exist
-        const tCreate = await fetch(`${API_BASE}/tables/`, {
+        const tCreate = await apiFetch(`/tables/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: tableName, status: 'occupied', capacity: 1 })
@@ -157,7 +157,7 @@ export default function OrderPanel() {
       }
 
       // Create Order
-      const oRes = await fetch(`${API_BASE}/orders/`, {
+      const oRes = await apiFetch(`/orders/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

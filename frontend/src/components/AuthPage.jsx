@@ -16,7 +16,7 @@ const PLANS = [
   {
     key: 'growth',
     name: 'Growth',
-    price: '₺299/ay',
+    price: '₺999/ay',
     color: '#6366f1',
     icon: Rocket,
     recommended: true,
@@ -25,7 +25,7 @@ const PLANS = [
   {
     key: 'enterprise',
     name: 'Enterprise',
-    price: '₺599/ay',
+    price: '₺1999/ay',
     color: '#f59e0b',
     icon: Crown,
     features: ['Sınırsız', 'WhatsApp API', 'Kurye Takibi', 'Özel domain'],

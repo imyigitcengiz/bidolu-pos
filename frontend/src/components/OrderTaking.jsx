@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus, Send, CreditCard, DollarSign, X, Check, Clock, Utensils, Tag, Percent, ChevronDown, AlertCircle } from 'lucide-react';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 export default function OrderTaking({ table, activeOrder, onBack }) {
   const [categories, setCategories] = useState([]);
@@ -33,7 +33,7 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_BASE}/categories/`);
+      const res = await apiFetch(`/categories/`);
       const data = await res.json();
       setCategories(data);
       if (data.length > 0) setSelectedCategory(data[0].id);
@@ -42,7 +42,7 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
 
   const fetchMenuItems = async () => {
     try {
-      const res = await fetch(`${API_BASE}/menu-items/`);
+      const res = await apiFetch(`/menu-items/`);
       const data = await res.json();
       setMenuItems(data);
     } catch (err) { console.error(err); }
@@ -52,7 +52,7 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
     const id = orderId || (existingOrder?.id) || (activeOrder?.id);
     if (!id) return;
     try {
-      const res = await fetch(`${API_BASE}/orders/${id}/`);
+      const res = await apiFetch(`/orders/${id}/`);
       const data = await res.json();
       setExistingOrder(data);
       // Restore discount state from server
@@ -154,7 +154,7 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
         modifier_extra: item.modifierExtra || 0
       }));
 
-      const res = await fetch(`${API_BASE}/orders/`, {
+      const res = await apiFetch(`/orders/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ table: table.id, items: itemsPayload })
@@ -180,7 +180,7 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/orders/${existingOrder.id}/apply_discount/`, {
+      const res = await apiFetch(`/orders/${existingOrder.id}/apply_discount/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -201,7 +201,7 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
   const removeDiscount = async () => {
     setAppliedDiscount(null);
     if (existingOrder) {
-      await fetch(`${API_BASE}/orders/${existingOrder.id}/apply_discount/`, {
+      await apiFetch(`/orders/${existingOrder.id}/apply_discount/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ discount_type: 'none', discount_value: 0, discount_reason: '' })
@@ -211,7 +211,7 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
 
   const handleRequestBill = async () => {
     try {
-      const res = await fetch(`${API_BASE}/tables/${table.id}/change_status/`, {
+      const res = await apiFetch(`/tables/${table.id}/change_status/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'bill_requested' })
@@ -225,7 +225,7 @@ export default function OrderTaking({ table, activeOrder, onBack }) {
     setLoading(true);
     try {
       const finalAmount = getGrandTotal();
-      const res = await fetch(`${API_BASE}/orders/${existingOrder.id}/pay_and_close/`, {
+      const res = await apiFetch(`/orders/${existingOrder.id}/pay_and_close/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payment_method: paymentMethod, amount: finalAmount })

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Globe, Save, Monitor, Tablet, Smartphone, ExternalLink, Calendar, Eye, Edit3, Check, AtSign, Users, Image, ToggleLeft, ToggleRight, Type, Link, ChevronUp, ChevronDown, Trash2, Plus, ArrowLeft, Star, Settings, Trash, Clock, MessageSquare, Lock, Unlock, Layers, Sparkles, BookOpen, UtensilsCrossed, BarChart3, Megaphone, CalendarCheck, Puzzle, Search, Grid3X3, ImagePlus, Quote, MapPin, Mail, Hash, Minus, GripVertical, ChevronRight, Play, Zap, Award, Target, HeartHandshake, Share2, ListOrdered, Columns, SeparatorHorizontal, Code2, HelpCircle, Building2, MousePointerClick } from 'lucide-react';
 import { useResponsive } from '../hooks/useResponsive';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 const TEMPLATES = [
   { id: 'Modern Dark', name: 'Modern Dark', bg: '#0b0c10', text: '#ffffff', accent: '#6366f1', cardBg: '#111218', desc: 'Canlı indigo vurgularıyla şık koyu tema' },
@@ -981,7 +981,7 @@ export default function OfficialWebsite() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/restaurant-profile/`);
+      const res = await apiFetch(`${API_BASE}/restaurant-profile/`);
       const data = await res.json();
       if (data && data.length > 0) {
         const prof = data[0];
@@ -1135,7 +1135,7 @@ export default function OfficialWebsite() {
           activePageId: activePageId
         };
         
-        const res = await fetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+        const res = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1159,11 +1159,91 @@ export default function OfficialWebsite() {
     finally { setSaving(false); }
   };
 
+  const handleExportSettings = () => {
+    const dataStr = JSON.stringify({
+      version: '1.0',
+      website_custom_domain: domain,
+      website_banner_text: bannerText,
+      website_about_text: JSON.stringify({ pages, activePageId }),
+      website_instagram: instagram,
+      website_facebook: facebook,
+      website_template: `${selectedTemplate}|${typography}`,
+      website_theme_color: themeColor,
+      website_enable_reservation: enableReservation
+    }, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bidolu-pos-site-settings-${resName.toLowerCase().replace(/\s+/g, '-')}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportSettings = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        if (imported.website_banner_text !== undefined) setBannerText(imported.website_banner_text);
+        if (imported.website_custom_domain !== undefined) setDomain(imported.website_custom_domain);
+        if (imported.website_instagram !== undefined) setInstagram(imported.website_instagram);
+        if (imported.website_facebook !== undefined) setFacebook(imported.website_facebook);
+        if (imported.website_theme_color !== undefined) setThemeColor(imported.website_theme_color);
+        if (imported.website_enable_reservation !== undefined) setEnableReservation(imported.website_enable_reservation);
+        
+        if (imported.website_template) {
+          const parts = imported.website_template.split('|');
+          setSelectedTemplate(parts[0]);
+          if (parts[1]) setTypography(parts[1]);
+        }
+        
+        if (imported.website_about_text) {
+          const parsed = JSON.parse(imported.website_about_text);
+          if (parsed.pages) {
+            setPages(parsed.pages);
+            const activePage = parsed.pages.find(p => p.id === parsed.activePageId) || parsed.pages[0];
+            if (activePage) {
+              setActivePageId(activePage.id);
+              setBlocks(activePage.blocks || []);
+            }
+          }
+        }
+        alert('Site ayarları başarıyla içe aktarıldı. Kaydetmek için lütfen "Değişiklikleri Kaydet" butonuna basın.');
+      } catch (err) {
+        alert('Geçersiz dosya formatı.');
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset file input
+  };
+
+  const handleDeleteSettings = () => {
+    if (!window.confirm('Tüm site ayarlarını sıfırlamak ve tasarım bloklarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) return;
+    
+    setBannerText('');
+    setDomain('');
+    setInstagram('');
+    setFacebook('');
+    setThemeColor('#6366f1');
+    setEnableReservation(true);
+    setSelectedTemplate('Modern Dark');
+    setTypography('Sans-serif');
+    setBlocks([]);
+    setPages([{ id: 'home', title: 'Ana Sayfa', slug: 'home', blocks: [], seo: { title: '', description: '', keywords: '' } }]);
+    setActivePageId('home');
+    
+    alert('Tüm ayarlar sıfırlandı. Değişiklikleri kalıcı yapmak için lütfen "Değişiklikleri Kaydet" butonuna basın.');
+  };
+
   const simulateUpgrade = async () => {
     try {
       setSaving(true);
       if (profileId) {
-        const res = await fetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+        const res = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1187,7 +1267,7 @@ export default function OfficialWebsite() {
     try {
       setSaving(true);
       if (profileId) {
-        const res = await fetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
+        const res = await apiFetch(`${API_BASE}/restaurant-profile/${profileId}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2214,15 +2294,15 @@ export default function OfficialWebsite() {
           </div>
 
           {/* Action buttons */}
-          <div style={{ padding: '16px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', gap: '10px' }}>
+          <div style={{ padding: '16px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button
               onClick={() => handleSave()}
               disabled={saving}
               style={{
-                flex: 1,
+                width: '100%',
                 padding: '10px',
                 background: saved ? '#10b981' : '#6366f1',
-                color: '#0f172a',
+                color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
                 fontWeight: '700',
@@ -2236,6 +2316,77 @@ export default function OfficialWebsite() {
               }}
             >
               {saved ? <><Check size={14} /> Kaydedildi!</> : saving ? 'Kaydediliyor...' : <><Save size={14} /> Yayınla / Kaydet</>}
+            </button>
+            
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={handleExportSettings}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  color: '#4f46e5',
+                  border: '1px solid rgba(99, 102, 241, 0.15)',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                📥 Dışa Aktar
+              </button>
+              <label
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  color: '#10b981',
+                  border: '1px solid rgba(16, 185, 129, 0.15)',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  textAlign: 'center'
+                }}
+              >
+                📤 İçe Aktar
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportSettings}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={handleDeleteSettings}
+              style={{
+                width: '100%',
+                padding: '8px',
+                background: 'rgba(239, 68, 68, 0.08)',
+                color: '#ef4444',
+                border: '1px solid rgba(239, 68, 68, 0.15)',
+                borderRadius: '6px',
+                fontWeight: '600',
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px'
+              }}
+            >
+              🗑️ Tüm Site Ayarlarını Sıfırla
             </button>
           </div>
 

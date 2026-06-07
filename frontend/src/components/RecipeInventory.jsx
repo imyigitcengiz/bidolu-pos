@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Layers, Plus, Trash2, PlusCircle, ShoppingCart, Activity } from 'lucide-react';
 import { useResponsive } from '../hooks/useResponsive';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 export default function RecipeInventory() {
   const { isMobile } = useResponsive();
@@ -57,7 +57,7 @@ export default function RecipeInventory() {
   const fetchPastAudits = async () => {
     try {
       setLoadingAudits(true);
-      const res = await fetch(`${API_BASE}/stock-audits/`);
+      const res = await apiFetch(`/stock-audits/`);
       const data = await res.json();
       setPastAudits(data);
     } catch (err) {
@@ -78,7 +78,7 @@ export default function RecipeInventory() {
     });
 
     try {
-      const res = await fetch(`${API_BASE}/stock-audits/`, {
+      const res = await apiFetch(`/stock-audits/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,7 +109,7 @@ export default function RecipeInventory() {
   const fetchIngredients = async () => {
     try {
       setLoadingIng(true);
-      const res = await fetch(`${API_BASE}/ingredients/`);
+      const res = await apiFetch(`/ingredients/`);
       const data = await res.json();
       setIngredients(data);
     } catch (err) {
@@ -122,9 +122,9 @@ export default function RecipeInventory() {
   const fetchRecipesData = async () => {
     try {
       const [itemsRes, recsRes, recIngsRes] = await Promise.all([
-        fetch(`${API_BASE}/menu-items/`),
-        fetch(`${API_BASE}/recipes/`),
-        fetch(`${API_BASE}/recipe-ingredients/`)
+        apiFetch('/menu-items/'),
+        apiFetch('/recipes/'),
+        apiFetch('/recipe-ingredients/'),
       ]);
       const items = await itemsRes.json();
       const recs = await recsRes.json();
@@ -145,7 +145,7 @@ export default function RecipeInventory() {
     if (!newIngName) return;
 
     try {
-      const res = await fetch(`${API_BASE}/ingredients/`, {
+      const res = await apiFetch(`/ingredients/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -189,7 +189,7 @@ export default function RecipeInventory() {
         ingPayload.unit_price = updatedUnitPrice;
       }
 
-      const ingRes = await fetch(`${API_BASE}/ingredients/${purchaseIngId}/`, {
+      const ingRes = await apiFetch(`/ingredients/${purchaseIngId}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(ingPayload)
@@ -197,7 +197,7 @@ export default function RecipeInventory() {
 
       // 2. Automatically log expense if cost is entered
       if (cost > 0) {
-        await fetch(`${API_BASE}/expenses/`, {
+        await apiFetch(`/expenses/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -240,7 +240,7 @@ export default function RecipeInventory() {
 
     try {
       // Create Recipe
-      const recRes = await fetch(`${API_BASE}/recipes/`, {
+      const recRes = await apiFetch(`/recipes/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -255,7 +255,7 @@ export default function RecipeInventory() {
         // Add all recipe ingredients
         await Promise.all(recipeIngsList.map(item => {
           const ing = ingredients.find(i => i.id === parseInt(item.ingredient));
-          return fetch(`${API_BASE}/recipe-ingredients/`, {
+          return apiFetch('/recipe-ingredients/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

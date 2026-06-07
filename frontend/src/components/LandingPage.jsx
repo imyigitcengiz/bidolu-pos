@@ -124,7 +124,7 @@ export default function LandingPage({ onLaunchApp }) {
           {/* Plan 1 */}
           <div className="price-card">
             <div className="plan-name">Başlangıç (Starter)</div>
-            <div className="plan-price">299 ₺ <span>/ Ay</span></div>
+            <div className="plan-price">499 ₺ <span>/ Ay</span></div>
             <p className="plan-desc">Yeni açılan, küçük ölçekli kafe ve büfeler için ideal temel paket.</p>
             <ul className="plan-features">
               <li><Check size={16} /> 10 Masaya Kadar Destek</li>
@@ -143,7 +143,7 @@ export default function LandingPage({ onLaunchApp }) {
           <div className="price-card popular">
             <div className="popular-badge">En Çok Tercih Edilen</div>
             <div className="plan-name">Büyüyen (Growth)</div>
-            <div className="plan-price">599 ₺ <span>/ Ay</span></div>
+            <div className="plan-price">999 ₺ <span>/ Ay</span></div>
             <p className="plan-desc">İşlerini büyüten ve profesyonel kontrol isteyen restoranlar için.</p>
             <ul className="plan-features">
               <li><Check size={16} /> Sınırsız Masa Yönetimi</li>
@@ -161,7 +161,7 @@ export default function LandingPage({ onLaunchApp }) {
           {/* Plan 3 */}
           <div className="price-card">
             <div className="plan-name">Kurumsal (Enterprise)</div>
-            <div className="plan-price">Özel Fiyat</div>
+            <div className="plan-price">1999 ₺ <span>/ Ay</span></div>
             <p className="plan-desc">Çok şubeli büyük restoran zincirleri ve franchise işletmeler için.</p>
             <ul className="plan-features">
               <li><Check size={16} /> Sınırsız Masa & Çoklu Şube</li>

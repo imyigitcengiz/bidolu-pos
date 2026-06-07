@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DollarSign, Trash2, Plus, Calendar, Filter } from 'lucide-react';
 import { useResponsive } from '../hooks/useResponsive';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+import { apiFetch, API_BASE } from '../lib/apiClient';
 
 export default function Expenses() {
   const { isMobile } = useResponsive();
@@ -23,7 +23,7 @@ export default function Expenses() {
   const fetchExpenses = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/expenses/`);
+      const res = await apiFetch(`/expenses/`);
       const data = await res.json();
       setExpenses(data);
     } catch (err) {
@@ -38,7 +38,7 @@ export default function Expenses() {
     if (!title || !amount) return;
 
     try {
-      const res = await fetch(`${API_BASE}/expenses/`, {
+      const res = await apiFetch(`/expenses/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -62,7 +62,7 @@ export default function Expenses() {
   const handleDeleteExpense = async (id) => {
     if (!confirm('Bu gider kaydını silmek istediğinize emin misiniz?')) return;
     try {
-      const res = await fetch(`${API_BASE}/expenses/${id}/`, { method: 'DELETE' });
+      const res = await apiFetch(`/expenses/${id}/`, { method: 'DELETE' });
       if (res.ok) {
         fetchExpenses();
       }
@@ -96,7 +96,7 @@ export default function Expenses() {
                 <option value="Gıda Malzemesi" style={{ background: 'var(--bg-dark)' }}>Gıda Malzemesi</option>
                 <option value="Kira" style={{ background: 'var(--bg-dark)' }}>Kira</option>
                 <option value="Fatura" style={{ background: 'var(--bg-dark)' }}>Fatura</option>
-                <option value="Maaş / Personel" style={{ background: 'var(--bg-dark)' }}>Maaş / Personel</option>
+                <option value="İnsan Kaynakları" style={{ background: 'var(--bg-dark)' }}>İnsan Kaynakları</option>
                 <option value="Diğer" style={{ background: 'var(--bg-dark)' }}>Diğer</option>
               </select>
             </div>
@@ -182,7 +182,7 @@ export default function Expenses() {
                   <option value="Gıda Malzemesi">Gıda Malzemesi</option>
                   <option value="Kira">Kira</option>
                   <option value="Fatura">Fatura</option>
-                  <option value="Maaş / Personel">Maaş / Personel</option>
+                  <option value="İnsan Kaynakları">İnsan Kaynakları</option>
                   <option value="Diğer">Diğer</option>
                 </select>
               </div>
